@@ -88,6 +88,31 @@ def fmt_multiple(value):
     return f"{value:.2f}倍"
 
 
+
+
+def fmt_price_plain(value):
+    if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
+        return "N/A"
+    return f"{value:.0f}"
+
+
+def fmt_pct_jp(value):
+    if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
+        return "N/A"
+    return f"{abs(value):.2f}％"
+
+
+def fmt_per(value):
+    if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
+        return "N/A"
+    return f"{value:.1f}倍"
+
+
+def fmt_eps(value):
+    if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
+        return "N/A"
+    return f"{value:.0f}円"
+
 def parse_watchlist_text(text: str):
     pattern = re.compile(r"[-*]?\s*([^\n()]+?)\s*[\(（]\s*(\d{4})\s*[\)）]")
     out = []
@@ -136,8 +161,9 @@ def render_stock_block(stock, include_market: bool, market_block: str) -> str:
         f"データ日：{stock['date']} / 取得時刻：{stock.get('acquired_at', 'N/A')}",
         "",
         "■現在位置",
-        f"現在値({stock.get('latest_bar_time', 'N/A')})：{fmt_price(stock['latest'])}（前日比 {fmt_pct(stock['day_change_pct'])}）",
-        f"前日終値：{fmt_price(stock['prev_close'])}",
+        f"現在値({stock['date'].replace('-', '/')}　{stock.get('latest_bar_time', 'N/A')})：{fmt_price_plain(stock['latest'])}(前日比{fmt_pct_jp(stock['day_change_pct'])})",
+        f"PER  {fmt_per(stock.get('per_actual'))}(実績)　{fmt_per(stock.get('per_fy0'))}(今期末予想) {fmt_per(stock.get('per_fy1'))}(来期予想)",
+        f"EPS  {fmt_eps(stock.get('eps_actual'))}(実績) {fmt_eps(stock.get('eps_fy0'))}(今期末予想) {fmt_eps(stock.get('eps_fy1'))}(来期予想)",
         "",
         "■当日レンジ・位置",
         f"O/H/L/C：{fmt_ohlc(stock['open'], stock['high'], stock['low'], stock['latest'])}",

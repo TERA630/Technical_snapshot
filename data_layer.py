@@ -108,3 +108,35 @@ def fetch_market_snapshot(infer_trend_func):
         change_pct = None if latest in (None, 0) or prev in (None, 0) else (latest / prev - 1.0) * 100
         out[name] = {"latest": latest, "change_pct": change_pct, "trend": trend}
     return out
+
+
+def fetch_valuation_snapshot(code: str) -> dict:
+    symbol = f"{code}.T"
+    ticker = yf.Ticker(symbol)
+    info = ticker.info or {}
+
+    trailing_eps = safe_float(info.get("trailingEps"))
+    forward_eps = safe_float(info.get("forwardEps"))
+    trailing_pe = safe_float(info.get("trailingPE"))
+    forward_pe = safe_float(info.get("forwardPE"))
+
+    eps_fy0 = None
+    eps_fy1 = None
+    try:
+        estimates = ticker.get_earnings_estimate()
+        if estimates is not None and not estimates.empty:
+            if "avg" in estimates.columns:
+                if "0y" in estimates.index:
+                    eps_fy0 = safe_float(estimates.loc["0y", "avg"])
+                if "+1y" in estimates.index:
+                    eps_fy1 = safe_float(estimates.loc["+1y", "avg"])
+    except Exception:
+        pass
+
+    return {
+        "eps_actual": trailing_eps,
+        "eps_fy0": eps_fy0 if eps_fy0 is not None else forward_eps,
+        "eps_fy1": eps_fy1,
+        "per_actual": trailing_pe,
+        "per_forward": forward_pe,
+    }

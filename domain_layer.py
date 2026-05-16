@@ -7,7 +7,7 @@ from typing import Protocol
 
 import pandas as pd
 
-from data_layer import fetch_history, fetch_intraday_vwap, safe_float
+from data_layer import fetch_history, fetch_intraday_vwap, fetch_valuation_snapshot, safe_float
 
 RSI_PERIOD = 14
 ATR_PERIOD = 14
@@ -22,6 +22,7 @@ class StockInput:
 class StockDataRepository(Protocol):
     def fetch_daily_history(self, code: str, period: str = "4mo") -> pd.DataFrame: ...
     def fetch_intraday_snapshot(self, code: str, interval: str = "5m") -> dict | None: ...
+    def fetch_valuation_snapshot(self, code: str) -> dict: ...
 
 
 class YFinanceStockDataRepository:
@@ -31,6 +32,9 @@ class YFinanceStockDataRepository:
     def fetch_intraday_snapshot(self, code: str, interval: str = "5m") -> dict | None:
         snapshot, _ = fetch_intraday_vwap(code, interval=interval)
         return snapshot
+
+    def fetch_valuation_snapshot(self, code: str) -> dict:
+        return fetch_valuation_snapshot(code)
 
 
 def calc_atr(df: pd.DataFrame, period: int = ATR_PERIOD) -> pd.Series:
@@ -172,6 +176,13 @@ def grade_trend(latest, ma5, ma25, ma25_prev5):
     return "もみ合い / 戻り局面"
 
 
+
+
+def calc_per(price, eps):
+    if price in (None, 0) or eps is None or eps <= 0:
+        return None
+    return price / eps
+
 def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository | None = None):
     repo = repository or YFinanceStockDataRepository()
     hist = repo.fetch_daily_history(stock_input.code, period="4mo")
@@ -196,6 +207,7 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
     atr14 = safe_float(last["ATR14"])
 
     intraday = repo.fetch_intraday_snapshot(stock_input.code, interval="5m")
+    valuation = repo.fetch_valuation_snapshot(stock_input.code)
     latest_bar_time = "終値"
     open_price = safe_float(last["Open"])
     high_price = safe_float(last["High"])
@@ -296,5 +308,11 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         "prev_candle": prev_candle,
         "today_candle": grade_candle(open_price, latest),
         "trend": grade_trend(latest, ma5, ma25, ma25_prev5),
+        "per_actual": valuation.get("per_actual"),
+        "per_fy0": calc_per(latest, valuation.get("eps_fy0")) if valuation.get("eps_fy0") is not None else valuation.get("per_forward"),
+        "per_fy1": calc_per(latest, valuation.get("eps_fy1")),
+        "eps_actual": valuation.get("eps_actual"),
+        "eps_fy0": valuation.get("eps_fy0"),
+        "eps_fy1": valuation.get("eps_fy1"),
         "error": None,
     }
