@@ -1,16 +1,39 @@
 from __future__ import annotations
 
-import math
-import pandas as pd
+from dataclasses import dataclass
 from datetime import datetime
+import math
+from typing import Protocol
 
-from data_layer import fetch_history, get_realtime_snapshot_yf, safe_float
+import pandas as pd
+
+from data_layer import fetch_history, fetch_intraday_vwap, safe_float
 
 RSI_PERIOD = 14
 ATR_PERIOD = 14
 
 
-def compute_atr(df: pd.DataFrame, period: int = ATR_PERIOD) -> pd.Series:
+@dataclass(frozen=True)
+class StockInput:
+    name: str
+    code: str
+
+
+class StockDataRepository(Protocol):
+    def fetch_daily_history(self, code: str, period: str = "4mo") -> pd.DataFrame: ...
+    def fetch_intraday_snapshot(self, code: str, interval: str = "5m") -> dict | None: ...
+
+
+class YFinanceStockDataRepository:
+    def fetch_daily_history(self, code: str, period: str = "4mo") -> pd.DataFrame:
+        return fetch_history(f"{code}.T", period=period)
+
+    def fetch_intraday_snapshot(self, code: str, interval: str = "5m") -> dict | None:
+        snapshot, _ = fetch_intraday_vwap(code, interval=interval)
+        return snapshot
+
+
+def calc_atr(df: pd.DataFrame, period: int = ATR_PERIOD) -> pd.Series:
     prev_close = df["Close"].shift(1)
     true_range = pd.concat([
         df["High"] - df["Low"],
@@ -20,7 +43,7 @@ def compute_atr(df: pd.DataFrame, period: int = ATR_PERIOD) -> pd.Series:
     return true_range.ewm(alpha=1 / period, adjust=False, min_periods=period).mean()
 
 
-def classify_range_by_atr(ratio):
+def grade_range_by_atr(ratio):
     if ratio is None or (isinstance(ratio, float) and (math.isnan(ratio) or math.isinf(ratio))):
         return "N/A"
     if ratio < 0.5:
@@ -32,7 +55,7 @@ def classify_range_by_atr(ratio):
     return "急拡大"
 
 
-def classify_close_position(position):
+def grade_close_position(position):
     if position is None or (isinstance(position, float) and (math.isnan(position) or math.isinf(position))):
         return "N/A"
     if position >= 0.60:
@@ -51,7 +74,7 @@ def calc_close_position(high_price, low_price, close_price):
     return (close_price - low_price) / price_range
 
 
-def classify_prev_session(prev_range_atr, close_position, prev_vol_ratio):
+def grade_prev_session(prev_range_atr, close_position, prev_vol_ratio):
     if prev_range_atr is None or close_position is None:
         return "判定不可"
     vol_ratio = 0.0 if prev_vol_ratio is None else prev_vol_ratio
@@ -64,7 +87,7 @@ def classify_prev_session(prev_range_atr, close_position, prev_vol_ratio):
     return "中立"
 
 
-def classify_prev_evaluation(prev_candle, prev_wick_shape, prev_range_atr, close_position, prev_vol_ratio):
+def grade_prev_evaluation(prev_candle, prev_wick_shape, prev_range_atr, close_position, prev_vol_ratio):
     if prev_range_atr is None or close_position is None:
         return "判定不可"
     vol_ratio = 0.0 if prev_vol_ratio is None else prev_vol_ratio
@@ -94,7 +117,7 @@ def calc_distance_pct(value, base):
     return (value / base - 1.0) * 100
 
 
-def ema_rsi(series: pd.Series, period: int = RSI_PERIOD) -> pd.Series:
+def calc_rsi(series: pd.Series, period: int = RSI_PERIOD) -> pd.Series:
     delta = series.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
@@ -104,7 +127,7 @@ def ema_rsi(series: pd.Series, period: int = RSI_PERIOD) -> pd.Series:
     return 100 - (100 / (1 + rs))
 
 
-def infer_candle(open_price, close_price):
+def grade_candle(open_price, close_price):
     if open_price is None or close_price is None:
         return "N/A"
     if close_price > open_price:
@@ -114,7 +137,7 @@ def infer_candle(open_price, close_price):
     return "十字線"
 
 
-def infer_wick_shape(open_price, high_price, low_price, close_price):
+def grade_wick_shape(open_price, high_price, low_price, close_price):
     values = [open_price, high_price, low_price, close_price]
     if any(v is None for v in values):
         return "N/A"
@@ -138,7 +161,7 @@ def infer_wick_shape(open_price, high_price, low_price, close_price):
     return "通常足"
 
 
-def infer_trend(latest, ma5, ma25, ma25_prev5):
+def grade_trend(latest, ma5, ma25, ma25_prev5):
     if latest is None or ma5 is None or ma25 is None:
         return "N/A"
     ma25_slope_up = ma25_prev5 is not None and ma25 > ma25_prev5
@@ -149,31 +172,36 @@ def infer_trend(latest, ma5, ma25, ma25_prev5):
     return "もみ合い / 戻り局面"
 
 
-def analyze_stock(name: str, code: str):
-    symbol = f"{code}.T"
-    hist = fetch_history(symbol, period="4mo")
+def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository | None = None):
+    repo = repository or YFinanceStockDataRepository()
+    hist = repo.fetch_daily_history(stock_input.code, period="4mo")
     if hist.empty or len(hist) < 30:
-        return {"name": name, "code": code, "error": "価格データ不足"}
+        return {"name": stock_input.name, "code": stock_input.code, "error": "価格データ不足"}
+
     hist = hist[["Open", "High", "Low", "Close", "Volume"]].dropna().copy()
     hist["MA5"] = hist["Close"].rolling(5).mean()
     hist["MA25"] = hist["Close"].rolling(25).mean()
-    hist["RSI14"] = ema_rsi(hist["Close"], RSI_PERIOD)
-    hist["ATR14"] = compute_atr(hist, ATR_PERIOD)
+    hist["RSI14"] = calc_rsi(hist["Close"], RSI_PERIOD)
+    hist["ATR14"] = calc_atr(hist, ATR_PERIOD)
     hist["VolAvg20"] = hist["Volume"].rolling(20).mean()
+
     last = hist.iloc[-1]
     prev = hist.iloc[-2]
     ma25_prev5 = safe_float(hist["MA25"].iloc[-6]) if len(hist) >= 30 else None
+
     latest = safe_float(last["Close"])
     ma5 = safe_float(last["MA5"])
     ma25 = safe_float(last["MA25"])
     vol = safe_float(last["Volume"])
     atr14 = safe_float(last["ATR14"])
-    intraday = get_realtime_snapshot_yf(code)
+
+    intraday = repo.fetch_intraday_snapshot(stock_input.code, interval="5m")
     latest_bar_time = "終値"
     open_price = safe_float(last["Open"])
     high_price = safe_float(last["High"])
     low_price = safe_float(last["Low"])
     volume_now = vol
+
     if intraday is not None:
         latest = intraday.get("latest_price") if intraday.get("latest_price") is not None else latest
         latest_bar_time = intraday.get("latest_bar_time") or latest_bar_time
@@ -185,49 +213,88 @@ def analyze_stock(name: str, code: str):
     else:
         typical = (last["High"] + last["Low"] + last["Close"]) / 3.0
         vwap = safe_float(typical)
-    prev_open = safe_float(prev["Open"])
-    prev_high = safe_float(prev["High"])
-    prev_low = safe_float(prev["Low"])
-    prev_close = safe_float(prev["Close"])
+
+    prev_open, prev_high, prev_low, prev_close = map(safe_float, [prev["Open"], prev["High"], prev["Low"], prev["Close"]])
     prev_change_pct = None
     if len(hist) >= 3:
         prev_prev_close = safe_float(hist["Close"].iloc[-3])
         if prev_close not in (None, 0) and prev_prev_close not in (None, 0):
             prev_change_pct = (prev_close / prev_prev_close - 1.0) * 100
+
     dev5 = None if latest in (None, 0) or ma5 in (None, 0) else (latest / ma5 - 1.0) * 100
     dev25 = None if latest in (None, 0) or ma25 in (None, 0) else (latest / ma25 - 1.0) * 100
     day_change_pct = None if latest in (None, 0) or prev_close in (None, 0) else (latest / prev_close - 1.0) * 100
     vol_avg20 = safe_float(last["VolAvg20"])
     vol_ratio = None if volume_now in (None, 0) or vol_avg20 in (None, 0) else (volume_now / vol_avg20 - 1.0) * 100
+
     prev_volume = safe_float(prev["Volume"])
     prev_vol_avg20 = safe_float(prev["VolAvg20"])
     prev_vol_ratio = None if prev_volume in (None, 0) or prev_vol_avg20 in (None, 0) else (prev_volume / prev_vol_avg20 - 1.0) * 100
     day_range = None if high_price is None or low_price is None else high_price - low_price
     prev_range = None if prev_high is None or prev_low is None else prev_high - prev_low
+
     day_range_atr = None if atr14 in (None, 0) or day_range is None else day_range / atr14
     day_close_position = calc_close_position(high_price, low_price, latest)
     prev_range_atr = None if atr14 in (None, 0) or prev_range is None else prev_range / atr14
     prev_close_position = calc_close_position(prev_high, prev_low, prev_close)
-    prev_session_judgement = classify_prev_session(prev_range_atr, prev_close_position, prev_vol_ratio)
-    prev_evaluation = classify_prev_evaluation(infer_candle(prev_open, prev_close), infer_wick_shape(prev_open, prev_high, prev_low, prev_close), prev_range_atr, prev_close_position, prev_vol_ratio)
-    ma25_distance = None if latest is None or ma25 is None else latest - ma25
-    ma25_distance_atr = None if atr14 in (None, 0) or ma25_distance is None else ma25_distance / atr14
+
+    prev_candle = grade_candle(prev_open, prev_close)
+    prev_wick_shape = grade_wick_shape(prev_open, prev_high, prev_low, prev_close)
+
     recent5_high = safe_float(hist["High"].shift(1).rolling(5).max().iloc[-1]) if len(hist) >= 6 else None
     recent20_high = safe_float(hist["High"].shift(1).rolling(20).max().iloc[-1]) if len(hist) >= 21 else None
+
     return {
-        "name": name, "code": code, "date": hist.index[-1].strftime("%Y-%m-%d"), "acquired_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "latest_bar_time": latest_bar_time,
-        "prev_open": prev_open, "prev_high": prev_high, "prev_low": prev_low, "prev_close": prev_close, "prev_change_pct": prev_change_pct,
-        "prev_wick_shape": infer_wick_shape(prev_open, prev_high, prev_low, prev_close), "open": open_price, "high": high_price, "low": low_price,
-        "latest": latest, "day_change_pct": day_change_pct, "vwap": vwap, "vwap_diff": None if latest in (None, 0) or vwap in (None, 0) else (latest / vwap - 1.0) * 100,
-        "ma5": ma5, "dev5": dev5, "ma25": ma25, "dev25": dev25, "rsi": safe_float(last["RSI14"]), "atr14": atr14,
-        "day_range": day_range, "day_range_atr": day_range_atr, "day_range_label": classify_range_by_atr(day_range_atr),
-        "day_close_position": day_close_position, "day_close_position_label": classify_close_position(day_close_position),
-        "prev_range": prev_range, "prev_range_atr": prev_range_atr, "prev_range_label": classify_range_by_atr(prev_range_atr),
-        "prev_close_position": prev_close_position, "prev_close_position_label": classify_close_position(prev_close_position),
-        "prev_volume": prev_volume, "prev_vol_ratio": prev_vol_ratio, "prev_session_judgement": prev_session_judgement, "prev_evaluation": prev_evaluation,
-        "ma25_distance": ma25_distance, "ma25_distance_atr": ma25_distance_atr,
-        "recent5_high": recent5_high, "recent5_high_distance": calc_distance(latest, recent5_high), "recent5_high_distance_pct": calc_distance_pct(latest, recent5_high),
-        "recent20_high": recent20_high, "recent20_high_distance": calc_distance(latest, recent20_high), "recent20_high_distance_pct": calc_distance_pct(latest, recent20_high),
-        "volume": volume_now, "vol_ratio": vol_ratio, "prev_candle": infer_candle(prev_open, prev_close), "today_candle": infer_candle(open_price, latest),
-        "trend": infer_trend(latest, ma5, ma25, ma25_prev5), "error": None,
+        "name": stock_input.name,
+        "code": stock_input.code,
+        "date": hist.index[-1].strftime("%Y-%m-%d"),
+        "acquired_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "latest_bar_time": latest_bar_time,
+        "prev_open": prev_open,
+        "prev_high": prev_high,
+        "prev_low": prev_low,
+        "prev_close": prev_close,
+        "prev_change_pct": prev_change_pct,
+        "prev_wick_shape": prev_wick_shape,
+        "open": open_price,
+        "high": high_price,
+        "low": low_price,
+        "latest": latest,
+        "day_change_pct": day_change_pct,
+        "vwap": vwap,
+        "vwap_diff": None if latest in (None, 0) or vwap in (None, 0) else (latest / vwap - 1.0) * 100,
+        "ma5": ma5,
+        "dev5": dev5,
+        "ma25": ma25,
+        "dev25": dev25,
+        "rsi": safe_float(last["RSI14"]),
+        "atr14": atr14,
+        "day_range": day_range,
+        "day_range_atr": day_range_atr,
+        "day_range_label": grade_range_by_atr(day_range_atr),
+        "day_close_position": day_close_position,
+        "day_close_position_label": grade_close_position(day_close_position),
+        "prev_range": prev_range,
+        "prev_range_atr": prev_range_atr,
+        "prev_range_label": grade_range_by_atr(prev_range_atr),
+        "prev_close_position": prev_close_position,
+        "prev_close_position_label": grade_close_position(prev_close_position),
+        "prev_volume": prev_volume,
+        "prev_vol_ratio": prev_vol_ratio,
+        "prev_session_judgement": grade_prev_session(prev_range_atr, prev_close_position, prev_vol_ratio),
+        "prev_evaluation": grade_prev_evaluation(prev_candle, prev_wick_shape, prev_range_atr, prev_close_position, prev_vol_ratio),
+        "ma25_distance": None if latest is None or ma25 is None else latest - ma25,
+        "ma25_distance_atr": None if atr14 in (None, 0) or latest is None or ma25 is None else (latest - ma25) / atr14,
+        "recent5_high": recent5_high,
+        "recent5_high_distance": calc_distance(latest, recent5_high),
+        "recent5_high_distance_pct": calc_distance_pct(latest, recent5_high),
+        "recent20_high": recent20_high,
+        "recent20_high_distance": calc_distance(latest, recent20_high),
+        "recent20_high_distance_pct": calc_distance_pct(latest, recent20_high),
+        "volume": volume_now,
+        "vol_ratio": vol_ratio,
+        "prev_candle": prev_candle,
+        "today_candle": grade_candle(open_price, latest),
+        "trend": grade_trend(latest, ma5, ma25, ma25_prev5),
+        "error": None,
     }

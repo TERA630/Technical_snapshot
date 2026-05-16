@@ -11,7 +11,7 @@ from datetime import datetime
 import pandas as pd
 
 from data_layer import fetch_market_snapshot
-from domain_layer import analyze_stock, infer_trend
+from domain_layer import StockInput, get_stock_snapshot, grade_trend
 
 try:
     import tkinter as tk
@@ -284,9 +284,9 @@ class StockEntryPromptApp:
         try:
             market_block = ""
             if self.include_market_var.get():
-                market_block = render_market_block(fetch_market_snapshot(infer_trend))
+                market_block = render_market_block(fetch_market_snapshot(grade_trend))
 
-            stock = analyze_stock(name, code)
+            stock = get_stock_snapshot(StockInput(name=name, code=code))
             output = render_stock_block(stock, self.include_market_var.get(), market_block)
         except Exception as exc:
             messagebox.showerror("生成失敗", str(exc))
