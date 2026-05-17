@@ -338,6 +338,7 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         "op_income_fy1": profitability.get("op_income_fy1"),
         "revenue_fy0": profitability.get("revenue_fy0"),
         "revenue_fy1": profitability.get("revenue_fy1"),
+        "op_margin_actual": profitability.get("op_margin_actual"),
         "op_margin_fy0": profitability.get("op_margin_fy0"),
         "op_margin_fy1": profitability.get("op_margin_fy1"),
         "annual_dividend": dividend.get("annual_dividend"),

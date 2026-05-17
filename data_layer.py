@@ -180,10 +180,29 @@ def fetch_profitability_snapshot(code: str) -> dict:
     op_margin_fy0 = calc_margin_ratio(op_income_fy0, revenue_fy0)
     op_margin_fy1 = calc_margin_ratio(op_income_fy1, revenue_fy1)
 
+    op_margin_actual = None
+    try:
+        financials = ticker.financials
+        if financials is not None and not financials.empty:
+            op_income_actual = None
+            revenue_actual = None
+            for key in ["Operating Income", "OperatingIncome"]:
+                if key in financials.index:
+                    op_income_actual = safe_float(financials.loc[key].iloc[0])
+                    break
+            for key in ["Total Revenue", "TotalRevenue", "Revenue"]:
+                if key in financials.index:
+                    revenue_actual = safe_float(financials.loc[key].iloc[0])
+                    break
+            op_margin_actual = calc_margin_ratio(op_income_actual, revenue_actual)
+    except Exception:
+        pass
+
     return {
         "roe_actual": roe_actual,
         "roe_fy0": None,
         "roe_fy1": None,
+        "op_margin_actual": op_margin_actual,
         "op_income_fy0": op_income_fy0,
         "op_income_fy1": op_income_fy1,
         "revenue_fy0": revenue_fy0,

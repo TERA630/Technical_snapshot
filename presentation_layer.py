@@ -81,6 +81,21 @@ def fmt_price_plain(value):
     return f"{value:.0f}"
 
 
+
+
+def fmt_price_current(value):
+    if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
+        return "N/A"
+    if abs(value) >= 1000:
+        return f"{value:.0f}"
+    return f"{value:.1f}"
+
+
+def fmt_pct_no_sign_jp(value):
+    if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
+        return "N/A"
+    return f"{value:.2f}％"
+
 def fmt_pct_jp(value):
     if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
         return "N/A"
@@ -139,24 +154,33 @@ def render_stock_block(stock, include_market: bool, market_block: str) -> str:
     if stock.get("error"):
         return f"【銘柄】{stock['name']} ({stock['code']})\n\n取得失敗：{stock['error']}"
 
+    acquired_at = stock.get("acquired_at", "")
+    base_year = None
+    if isinstance(acquired_at, str) and len(acquired_at) >= 4 and acquired_at[:4].isdigit():
+        base_year = int(acquired_at[:4])
+    else:
+        base_year = pd.Timestamp.now().year
+    actual_year = base_year - 1
+    forecast_year = base_year
+
     lines = [
         f"【銘柄】{stock['name']} ({stock['code']})",
-        f"データ日：{stock['date']} / 取得時刻：{stock.get('acquired_at', 'N/A')}",
         "",
-        "■現在位置",
-        f"現在値({stock['date'].replace('-', '/')}　{stock.get('latest_bar_time', 'N/A')})：{fmt_price_plain(stock['latest'])}(前日比{fmt_pct_jp(stock['day_change_pct'])})",
-        f"PER  {fmt_per(stock.get('per_actual'))}(実績)　{fmt_per(stock.get('per_fy0'))}(今期末予想) {fmt_per(stock.get('per_fy1'))}(来期予想)",
-        f"EPS  {fmt_eps(stock.get('eps_actual'))}(実績) {fmt_eps(stock.get('eps_fy0'))}(今期末予想) {fmt_eps(stock.get('eps_fy1'))}(来期予想)",
+        "■当日位置・レンジ",
+        f"現在値({stock['date'].replace('-', '/')}　{stock.get('latest_bar_time', 'N/A')})：{fmt_price_current(stock['latest'])}(前日比{fmt_pct_jp(stock['day_change_pct'])})",
         "",
-        "■当日レンジ・位置",
         f"O/H/L/C：{fmt_ohlc(stock['open'], stock['high'], stock['low'], stock['latest'])}",
         f"当日値幅：{fmt_price(stock['day_range'])}（ATR比 {fmt_multiple(stock['day_range_atr'])} / {stock['day_range_label']}）",
         f"終端位置：{fmt_close_position(stock.get('day_close_position'), stock.get('day_close_position_label', 'N/A'))}",
+        "",
+        f"PER  {fmt_per(stock.get('per_actual'))}(実績) {fmt_per(stock.get('per_fy0'))}(今期末予想) {fmt_per(stock.get('per_fy1'))}(来期予想)",
+        f"EPS  {fmt_eps(stock.get('eps_actual'))}(実績) {fmt_eps(stock.get('eps_fy0'))}(今期末予想) {fmt_eps(stock.get('eps_fy1'))}(来期予想)",
         "",
         "■当日テクニカル",
         f"VWAP：{fmt_vwap_position(stock['latest'], stock['vwap'])}",
         f"5日線：{fmt_price(stock['ma5'])}（乖離 {fmt_pct(stock['dev5'])}）",
         f"25日線：{fmt_price(stock['ma25'])}（乖離 {fmt_pct(stock['dev25'])} / 距離 {fmt_price_diff(stock['ma25_distance'])} / ATR比 {fmt_multiple(stock['ma25_distance_atr'])}）",
+        f"14日ATR：{fmt_price(stock['atr14'])}",
         f"RSI：{fmt_price(stock['rsi'])}",
         f"出来高：{fmt_volume(stock['volume'])}（20日平均比 {fmt_pct(stock['vol_ratio'])}）",
         "",
@@ -169,6 +193,13 @@ def render_stock_block(stock, include_market: bool, market_block: str) -> str:
         f"出来高：{fmt_volume(stock['prev_volume'])}（20日平均比 {fmt_pct(stock['prev_vol_ratio'])}）",
         f"押し判定：{stock['prev_session_judgement']}",
         f"総合評価：{stock['prev_evaluation']}",
+        "",
+        "■ファンダメンタル",
+        f"配当利回り {fmt_pct_no_sign_jp(stock.get('dividend_yield'))}",
+        "",
+        f"{actual_year}年実績ROE {fmt_pct_no_sign_jp(stock.get('roe_actual'))}",
+        f"{actual_year}年実績営業利益率 {fmt_pct_no_sign_jp(stock.get('op_margin_actual'))}",
+        f"{forecast_year}年予想営業利益率 {fmt_pct_no_sign_jp(stock.get('op_margin_fy0'))}",
         "",
         "■節目・ブレイクライン",
         f"前日高値：{fmt_price(stock['prev_high'])}",
