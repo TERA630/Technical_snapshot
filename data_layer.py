@@ -140,3 +140,147 @@ def fetch_valuation_snapshot(code: str) -> dict:
         "per_actual": trailing_pe,
         "per_forward": forward_pe,
     }
+
+
+def calc_margin_ratio(operating_income, total_revenue):
+    if operating_income is None or total_revenue in (None, 0):
+        return None
+    return (operating_income / total_revenue) * 100
+
+
+
+
+def fetch_statement_row_series(statement_df, candidate_keys):
+    if statement_df is None or statement_df.empty:
+        return None
+    for key in candidate_keys:
+        if key in statement_df.index:
+            return statement_df.loc[key]
+    return None
+
+
+def fetch_statement_value_by_offset(series, offset):
+    if series is None or len(series) <= offset:
+        return None
+    return safe_float(series.iloc[offset])
+
+def calc_growth_rate(current_value, base_value):
+    if current_value is None or base_value in (None, 0):
+        return None
+    return (current_value / base_value - 1.0) * 100
+
+
+def fetch_profitability_snapshot(code: str) -> dict:
+    symbol = f"{code}.T"
+    ticker = yf.Ticker(symbol)
+    info = ticker.info or {}
+
+    roe_actual = safe_float(info.get("returnOnEquity"))
+    if roe_actual is not None and roe_actual <= 1:
+        roe_actual *= 100
+
+    op_income_fy0 = None
+    op_income_fy1 = None
+    revenue_fy0 = None
+    revenue_fy1 = None
+
+    try:
+        rev_est = ticker.get_revenue_estimate()
+        if rev_est is not None and not rev_est.empty and "avg" in rev_est.columns:
+            if "0y" in rev_est.index:
+                revenue_fy0 = safe_float(rev_est.loc["0y", "avg"])
+            if "+1y" in rev_est.index:
+                revenue_fy1 = safe_float(rev_est.loc["+1y", "avg"])
+    except Exception:
+        pass
+
+    op_margin_fy0 = calc_margin_ratio(op_income_fy0, revenue_fy0)
+    op_margin_fy1 = calc_margin_ratio(op_income_fy1, revenue_fy1)
+
+    op_margin_actual = None
+    op_growth_actual = None
+    op_income_actual = None
+    op_income_prev = None
+    try:
+        income_stmt = ticker.income_stmt
+        if income_stmt is None or income_stmt.empty:
+            income_stmt = ticker.financials
+
+        op_income_series = fetch_statement_row_series(income_stmt, ["Operating Income", "OperatingIncome"])
+        revenue_series = fetch_statement_row_series(income_stmt, ["Total Revenue", "TotalRevenue", "Revenue"])
+
+        op_income_actual = fetch_statement_value_by_offset(op_income_series, 0)
+        op_income_prev = fetch_statement_value_by_offset(op_income_series, 1)
+        revenue_actual = fetch_statement_value_by_offset(revenue_series, 0)
+
+        op_margin_actual = calc_margin_ratio(op_income_actual, revenue_actual)
+        op_growth_actual = calc_growth_rate(op_income_actual, op_income_prev)
+    except Exception:
+        pass
+
+    op_margin_q_latest = None
+    op_growth_q_yoy = None
+    op_income_q_latest = None
+    op_income_q_prev_year = None
+    try:
+        q_income_stmt = ticker.quarterly_income_stmt
+        if q_income_stmt is None or q_income_stmt.empty:
+            q_income_stmt = ticker.quarterly_financials
+
+        q_op_income_series = fetch_statement_row_series(q_income_stmt, ["Operating Income", "OperatingIncome"])
+        q_revenue_series = fetch_statement_row_series(q_income_stmt, ["Total Revenue", "TotalRevenue", "Revenue"])
+
+        op_income_q_latest = fetch_statement_value_by_offset(q_op_income_series, 0)
+        op_income_q_prev_year = fetch_statement_value_by_offset(q_op_income_series, 4)
+        q_revenue_latest = fetch_statement_value_by_offset(q_revenue_series, 0)
+
+        op_margin_q_latest = calc_margin_ratio(op_income_q_latest, q_revenue_latest)
+        op_growth_q_yoy = calc_growth_rate(op_income_q_latest, op_income_q_prev_year)
+    except Exception:
+        pass
+
+    return {
+        "roe_actual": roe_actual,
+        "roe_fy0": None,
+        "roe_fy1": None,
+        "op_margin_actual": op_margin_actual,
+        "op_growth_actual": op_growth_actual,
+        "op_income_actual": op_income_actual,
+        "op_income_prev": op_income_prev,
+        "op_margin_q_latest": op_margin_q_latest,
+        "op_growth_q_yoy": op_growth_q_yoy,
+        "op_income_q_latest": op_income_q_latest,
+        "op_income_q_prev_year": op_income_q_prev_year,
+        "op_income_fy0": op_income_fy0,
+        "op_income_fy1": op_income_fy1,
+        "revenue_fy0": revenue_fy0,
+        "revenue_fy1": revenue_fy1,
+        "op_margin_fy0": op_margin_fy0,
+        "op_margin_fy1": op_margin_fy1,
+    }
+
+
+def fetch_dividend_snapshot(code: str) -> dict:
+    symbol = f"{code}.T"
+    ticker = yf.Ticker(symbol)
+    info = ticker.info or {}
+
+    annual_dividend = safe_float(info.get("trailingAnnualDividendRate"))
+    if annual_dividend is None:
+        annual_dividend = safe_float(info.get("dividendRate"))
+
+    latest_dividend = None
+    latest_dividend_date = None
+    try:
+        dividends = ticker.dividends
+        if dividends is not None and not dividends.empty:
+            latest_dividend = safe_float(dividends.iloc[-1])
+            latest_dividend_date = pd.Timestamp(dividends.index[-1]).strftime("%Y-%m-%d")
+    except Exception:
+        pass
+
+    return {
+        "annual_dividend": annual_dividend,
+        "latest_dividend": latest_dividend,
+        "latest_dividend_date": latest_dividend_date,
+    }
