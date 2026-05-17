@@ -157,20 +157,15 @@ def fetch_profitability_snapshot(code: str) -> dict:
     if roe_actual is not None and roe_actual <= 1:
         roe_actual *= 100
 
+    # NOTE:
+    # yfinance.get_earnings_estimate() is EPS-oriented (per-share estimate),
+    # and must not be treated as operating income.
+    # To avoid mixing units, operating income forecast is kept as None unless
+    # a reliable operating-income source is introduced.
     op_income_fy0 = None
     op_income_fy1 = None
     revenue_fy0 = None
     revenue_fy1 = None
-
-    try:
-        estimates = ticker.get_earnings_estimate()
-        if estimates is not None and not estimates.empty and "avg" in estimates.columns:
-            if "0y" in estimates.index:
-                op_income_fy0 = safe_float(estimates.loc["0y", "avg"])
-            if "+1y" in estimates.index:
-                op_income_fy1 = safe_float(estimates.loc["+1y", "avg"])
-    except Exception:
-        pass
 
     try:
         rev_est = ticker.get_revenue_estimate()
