@@ -148,6 +148,22 @@ def calc_margin_ratio(operating_income, total_revenue):
     return (operating_income / total_revenue) * 100
 
 
+
+
+def fetch_statement_row_series(statement_df, candidate_keys):
+    if statement_df is None or statement_df.empty:
+        return None
+    for key in candidate_keys:
+        if key in statement_df.index:
+            return statement_df.loc[key]
+    return None
+
+
+def fetch_statement_value_by_offset(series, offset):
+    if series is None or len(series) <= offset:
+        return None
+    return safe_float(series.iloc[offset])
+
 def calc_growth_rate(current_value, base_value):
     if current_value is None or base_value in (None, 0):
         return None
@@ -186,21 +202,19 @@ def fetch_profitability_snapshot(code: str) -> dict:
     op_income_actual = None
     op_income_prev = None
     try:
-        financials = ticker.financials
-        if financials is not None and not financials.empty:
-            revenue_actual = None
-            for key in ["Operating Income", "OperatingIncome"]:
-                if key in financials.index:
-                    op_income_actual = safe_float(financials.loc[key].iloc[0])
-                    if len(financials.columns) >= 2:
-                        op_income_prev = safe_float(financials.loc[key].iloc[1])
-                    break
-            for key in ["Total Revenue", "TotalRevenue", "Revenue"]:
-                if key in financials.index:
-                    revenue_actual = safe_float(financials.loc[key].iloc[0])
-                    break
-            op_margin_actual = calc_margin_ratio(op_income_actual, revenue_actual)
-            op_growth_actual = calc_growth_rate(op_income_actual, op_income_prev)
+        income_stmt = ticker.income_stmt
+        if income_stmt is None or income_stmt.empty:
+            income_stmt = ticker.financials
+
+        op_income_series = fetch_statement_row_series(income_stmt, ["Operating Income", "OperatingIncome"])
+        revenue_series = fetch_statement_row_series(income_stmt, ["Total Revenue", "TotalRevenue", "Revenue"])
+
+        op_income_actual = fetch_statement_value_by_offset(op_income_series, 0)
+        op_income_prev = fetch_statement_value_by_offset(op_income_series, 1)
+        revenue_actual = fetch_statement_value_by_offset(revenue_series, 0)
+
+        op_margin_actual = calc_margin_ratio(op_income_actual, revenue_actual)
+        op_growth_actual = calc_growth_rate(op_income_actual, op_income_prev)
     except Exception:
         pass
 
@@ -209,21 +223,19 @@ def fetch_profitability_snapshot(code: str) -> dict:
     op_income_q_latest = None
     op_income_q_prev_year = None
     try:
-        q_fin = ticker.quarterly_financials
-        if q_fin is not None and not q_fin.empty:
-            q_revenue_latest = None
-            for key in ["Operating Income", "OperatingIncome"]:
-                if key in q_fin.index:
-                    op_income_q_latest = safe_float(q_fin.loc[key].iloc[0])
-                    if len(q_fin.columns) >= 5:
-                        op_income_q_prev_year = safe_float(q_fin.loc[key].iloc[4])
-                    break
-            for key in ["Total Revenue", "TotalRevenue", "Revenue"]:
-                if key in q_fin.index:
-                    q_revenue_latest = safe_float(q_fin.loc[key].iloc[0])
-                    break
-            op_margin_q_latest = calc_margin_ratio(op_income_q_latest, q_revenue_latest)
-            op_growth_q_yoy = calc_growth_rate(op_income_q_latest, op_income_q_prev_year)
+        q_income_stmt = ticker.quarterly_income_stmt
+        if q_income_stmt is None or q_income_stmt.empty:
+            q_income_stmt = ticker.quarterly_financials
+
+        q_op_income_series = fetch_statement_row_series(q_income_stmt, ["Operating Income", "OperatingIncome"])
+        q_revenue_series = fetch_statement_row_series(q_income_stmt, ["Total Revenue", "TotalRevenue", "Revenue"])
+
+        op_income_q_latest = fetch_statement_value_by_offset(q_op_income_series, 0)
+        op_income_q_prev_year = fetch_statement_value_by_offset(q_op_income_series, 4)
+        q_revenue_latest = fetch_statement_value_by_offset(q_revenue_series, 0)
+
+        op_margin_q_latest = calc_margin_ratio(op_income_q_latest, q_revenue_latest)
+        op_growth_q_yoy = calc_growth_rate(op_income_q_latest, op_income_q_prev_year)
     except Exception:
         pass
 

@@ -96,7 +96,7 @@
 ## 5. 新規実装仕様（ドメイン反映済み）
 
 ### 5.1 実績営業成長率
-- 取得ソース: `ticker.financials` の `Operating Income`（年次）
+- 取得ソース: `ticker.income_stmt`（年次、fallback: `ticker.financials`）の `Operating Income`
 - 使用データ:
   - 当期実績営業利益: 最新列 `iloc[0]`
   - 前期実績営業利益: 次列 `iloc[1]`
@@ -106,7 +106,7 @@
   - `op_growth_actual`
 
 ### 5.2 直近四半期営業利益率
-- 取得ソース: `ticker.quarterly_financials`
+- 取得ソース: `ticker.quarterly_income_stmt`（fallback: `ticker.quarterly_financials`）
   - 営業利益: `Operating Income`
   - 売上高: `Total Revenue`
 - 計算式:
@@ -115,7 +115,7 @@
   - `op_margin_q_latest`
 
 ### 5.3 直近四半期の昨年同期比営業成長率
-- 取得ソース: `ticker.quarterly_financials` の `Operating Income`
+- 取得ソース: `ticker.quarterly_income_stmt`（fallback: `ticker.quarterly_financials`） の `Operating Income`
 - 使用データ:
   - 直近四半期: `iloc[0]`
   - 昨年同期（4四半期前）: `iloc[4]`
