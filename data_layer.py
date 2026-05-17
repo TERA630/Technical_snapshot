@@ -191,3 +191,29 @@ def fetch_profitability_snapshot(code: str) -> dict:
         "op_margin_fy0": op_margin_fy0,
         "op_margin_fy1": op_margin_fy1,
     }
+
+
+def fetch_dividend_snapshot(code: str) -> dict:
+    symbol = f"{code}.T"
+    ticker = yf.Ticker(symbol)
+    info = ticker.info or {}
+
+    annual_dividend = safe_float(info.get("trailingAnnualDividendRate"))
+    if annual_dividend is None:
+        annual_dividend = safe_float(info.get("dividendRate"))
+
+    latest_dividend = None
+    latest_dividend_date = None
+    try:
+        dividends = ticker.dividends
+        if dividends is not None and not dividends.empty:
+            latest_dividend = safe_float(dividends.iloc[-1])
+            latest_dividend_date = pd.Timestamp(dividends.index[-1]).strftime("%Y-%m-%d")
+    except Exception:
+        pass
+
+    return {
+        "annual_dividend": annual_dividend,
+        "latest_dividend": latest_dividend,
+        "latest_dividend_date": latest_dividend_date,
+    }
