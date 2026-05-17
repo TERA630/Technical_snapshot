@@ -164,6 +164,21 @@ def fetch_statement_value_by_offset(series, offset):
         return None
     return safe_float(series.iloc[offset])
 
+
+
+def calc_sum_by_offsets(series, offsets):
+    if series is None:
+        return None
+    values = []
+    for offset in offsets:
+        if len(series) <= offset:
+            return None
+        value = safe_float(series.iloc[offset])
+        if value is None:
+            return None
+        values.append(value)
+    return sum(values)
+
 def calc_growth_rate(current_value, base_value):
     if current_value is None or base_value in (None, 0):
         return None
@@ -222,7 +237,14 @@ def fetch_profitability_snapshot(code: str) -> dict:
     op_growth_q_yoy = None
     op_income_q_latest = None
     op_income_q_prev_year = None
+    op_income_q_ttm = None
+    revenue_q_ttm = None
+    op_margin_q_ttm = None
+    op_income_q_ttm_prev = None
+    op_growth_q_ttm_yoy = None
     try:
+        # Quarterly specification: use quarterly_income_stmt as primary source.
+        # fallback to quarterly_financials only when quarterly_income_stmt is unavailable.
         q_income_stmt = ticker.quarterly_income_stmt
         if q_income_stmt is None or q_income_stmt.empty:
             q_income_stmt = ticker.quarterly_financials
@@ -236,6 +258,13 @@ def fetch_profitability_snapshot(code: str) -> dict:
 
         op_margin_q_latest = calc_margin_ratio(op_income_q_latest, q_revenue_latest)
         op_growth_q_yoy = calc_growth_rate(op_income_q_latest, op_income_q_prev_year)
+
+        op_income_q_ttm = calc_sum_by_offsets(q_op_income_series, [0, 1, 2, 3])
+        revenue_q_ttm = calc_sum_by_offsets(q_revenue_series, [0, 1, 2, 3])
+        op_margin_q_ttm = calc_margin_ratio(op_income_q_ttm, revenue_q_ttm)
+
+        op_income_q_ttm_prev = calc_sum_by_offsets(q_op_income_series, [4, 5, 6, 7])
+        op_growth_q_ttm_yoy = calc_growth_rate(op_income_q_ttm, op_income_q_ttm_prev)
     except Exception:
         pass
 
@@ -251,6 +280,11 @@ def fetch_profitability_snapshot(code: str) -> dict:
         "op_growth_q_yoy": op_growth_q_yoy,
         "op_income_q_latest": op_income_q_latest,
         "op_income_q_prev_year": op_income_q_prev_year,
+        "op_income_q_ttm": op_income_q_ttm,
+        "revenue_q_ttm": revenue_q_ttm,
+        "op_margin_q_ttm": op_margin_q_ttm,
+        "op_income_q_ttm_prev": op_income_q_ttm_prev,
+        "op_growth_q_ttm_yoy": op_growth_q_ttm_yoy,
         "op_income_fy0": op_income_fy0,
         "op_income_fy1": op_income_fy1,
         "revenue_fy0": revenue_fy0,

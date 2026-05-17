@@ -125,3 +125,35 @@
   - `op_growth_q_yoy`
 
 ※ 欠損/ゼロ除算時は `None`（表示層で `N/A` 想定）。
+
+
+## 6. 四半期ベース取得仕様（変更）
+
+四半期ベース（Quarterly）指標は `ticker.quarterly_income_stmt` を一次ソースとして扱う。  
+`quarterly_income_stmt` が空の場合のみ `ticker.quarterly_financials` を fallback とする。
+
+### 6.1 直近四半期営業利益率
+- 営業利益: `Operating Income` の `iloc[0]`
+- 売上高: `Total Revenue` の `iloc[0]`
+- 計算: `calc_margin_ratio(営業利益, 売上高)`
+- 出力キー: `op_margin_q_latest`
+
+### 6.2 直近四半期営業利益成長率（YoY）
+- 直近四半期営業利益: `iloc[0]`
+- 昨年同期営業利益: `iloc[4]`
+- 計算: `calc_growth_rate(直近四半期, 昨年同期)`
+- 出力キー: `op_growth_q_yoy`
+
+### 6.3 直近四半期累計（TTM）営業利益率
+- 直近4四半期営業利益合計: `sum(iloc[0], [1], [2], [3])`
+- 直近4四半期売上高合計: `sum(iloc[0], [1], [2], [3])`
+- 計算: `calc_margin_ratio(営業利益TTM, 売上高TTM)`
+- 出力キー: `op_margin_q_ttm`
+
+### 6.4 直近四半期累計（TTM）営業利益成長率（YoY）
+- 当年TTM営業利益: `sum(iloc[0..3])`
+- 前年TTM営業利益: `sum(iloc[4..7])`
+- 計算: `calc_growth_rate(当年TTM, 前年TTM)`
+- 出力キー: `op_growth_q_ttm_yoy`
+
+※ 取得列不足・欠損・ゼロ除算時は `None` を返す（表示層で `N/A`）。
