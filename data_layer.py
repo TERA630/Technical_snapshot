@@ -140,3 +140,54 @@ def fetch_valuation_snapshot(code: str) -> dict:
         "per_actual": trailing_pe,
         "per_forward": forward_pe,
     }
+
+
+def calc_margin_ratio(operating_income, total_revenue):
+    if operating_income is None or total_revenue in (None, 0):
+        return None
+    return (operating_income / total_revenue) * 100
+
+
+def fetch_profitability_snapshot(code: str) -> dict:
+    symbol = f"{code}.T"
+    ticker = yf.Ticker(symbol)
+    info = ticker.info or {}
+
+    roe_actual = safe_float(info.get("returnOnEquity"))
+    if roe_actual is not None and roe_actual <= 1:
+        roe_actual *= 100
+
+    # NOTE:
+    # yfinance.get_earnings_estimate() is EPS-oriented (per-share estimate),
+    # and must not be treated as operating income.
+    # To avoid mixing units, operating income forecast is kept as None unless
+    # a reliable operating-income source is introduced.
+    op_income_fy0 = None
+    op_income_fy1 = None
+    revenue_fy0 = None
+    revenue_fy1 = None
+
+    try:
+        rev_est = ticker.get_revenue_estimate()
+        if rev_est is not None and not rev_est.empty and "avg" in rev_est.columns:
+            if "0y" in rev_est.index:
+                revenue_fy0 = safe_float(rev_est.loc["0y", "avg"])
+            if "+1y" in rev_est.index:
+                revenue_fy1 = safe_float(rev_est.loc["+1y", "avg"])
+    except Exception:
+        pass
+
+    op_margin_fy0 = calc_margin_ratio(op_income_fy0, revenue_fy0)
+    op_margin_fy1 = calc_margin_ratio(op_income_fy1, revenue_fy1)
+
+    return {
+        "roe_actual": roe_actual,
+        "roe_fy0": None,
+        "roe_fy1": None,
+        "op_income_fy0": op_income_fy0,
+        "op_income_fy1": op_income_fy1,
+        "revenue_fy0": revenue_fy0,
+        "revenue_fy1": revenue_fy1,
+        "op_margin_fy0": op_margin_fy0,
+        "op_margin_fy1": op_margin_fy1,
+    }
