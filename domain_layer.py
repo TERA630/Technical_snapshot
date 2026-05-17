@@ -7,7 +7,7 @@ from typing import Protocol
 
 import pandas as pd
 
-from data_layer import fetch_history, fetch_intraday_vwap, fetch_valuation_snapshot, safe_float
+from data_layer import fetch_dividend_snapshot, fetch_history, fetch_intraday_vwap, fetch_profitability_snapshot, fetch_valuation_snapshot, safe_float
 
 RSI_PERIOD = 14
 ATR_PERIOD = 14
@@ -23,6 +23,8 @@ class StockDataRepository(Protocol):
     def fetch_daily_history(self, code: str, period: str = "4mo") -> pd.DataFrame: ...
     def fetch_intraday_snapshot(self, code: str, interval: str = "5m") -> dict | None: ...
     def fetch_valuation_snapshot(self, code: str) -> dict: ...
+    def fetch_profitability_snapshot(self, code: str) -> dict: ...
+    def fetch_dividend_snapshot(self, code: str) -> dict: ...
 
 
 class YFinanceStockDataRepository:
@@ -35,6 +37,12 @@ class YFinanceStockDataRepository:
 
     def fetch_valuation_snapshot(self, code: str) -> dict:
         return fetch_valuation_snapshot(code)
+
+    def fetch_profitability_snapshot(self, code: str) -> dict:
+        return fetch_profitability_snapshot(code)
+
+    def fetch_dividend_snapshot(self, code: str) -> dict:
+        return fetch_dividend_snapshot(code)
 
 
 def calc_atr(df: pd.DataFrame, period: int = ATR_PERIOD) -> pd.Series:
@@ -183,6 +191,13 @@ def calc_per(price, eps):
         return None
     return price / eps
 
+
+
+def calc_dividend_yield(latest_price, annual_dividend):
+    if latest_price in (None, 0) or annual_dividend is None:
+        return None
+    return (annual_dividend / latest_price) * 100
+
 def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository | None = None):
     repo = repository or YFinanceStockDataRepository()
     hist = repo.fetch_daily_history(stock_input.code, period="4mo")
@@ -208,6 +223,8 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
 
     intraday = repo.fetch_intraday_snapshot(stock_input.code, interval="5m")
     valuation = repo.fetch_valuation_snapshot(stock_input.code)
+    profitability = repo.fetch_profitability_snapshot(stock_input.code)
+    dividend = repo.fetch_dividend_snapshot(stock_input.code)
     latest_bar_time = "終値"
     open_price = safe_float(last["Open"])
     high_price = safe_float(last["High"])
@@ -314,5 +331,18 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         "eps_actual": valuation.get("eps_actual"),
         "eps_fy0": valuation.get("eps_fy0"),
         "eps_fy1": valuation.get("eps_fy1"),
+        "roe_actual": profitability.get("roe_actual"),
+        "roe_fy0": profitability.get("roe_fy0"),
+        "roe_fy1": profitability.get("roe_fy1"),
+        "op_income_fy0": profitability.get("op_income_fy0"),
+        "op_income_fy1": profitability.get("op_income_fy1"),
+        "revenue_fy0": profitability.get("revenue_fy0"),
+        "revenue_fy1": profitability.get("revenue_fy1"),
+        "op_margin_fy0": profitability.get("op_margin_fy0"),
+        "op_margin_fy1": profitability.get("op_margin_fy1"),
+        "annual_dividend": dividend.get("annual_dividend"),
+        "latest_dividend": dividend.get("latest_dividend"),
+        "latest_dividend_date": dividend.get("latest_dividend_date"),
+        "dividend_yield": calc_dividend_yield(latest, dividend.get("annual_dividend")),
         "error": None,
     }
