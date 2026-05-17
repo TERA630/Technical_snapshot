@@ -148,6 +148,12 @@ def calc_margin_ratio(operating_income, total_revenue):
     return (operating_income / total_revenue) * 100
 
 
+def calc_growth_rate(current_value, base_value):
+    if current_value is None or base_value in (None, 0):
+        return None
+    return (current_value / base_value - 1.0) * 100
+
+
 def fetch_profitability_snapshot(code: str) -> dict:
     symbol = f"{code}.T"
     ticker = yf.Ticker(symbol)
@@ -157,11 +163,6 @@ def fetch_profitability_snapshot(code: str) -> dict:
     if roe_actual is not None and roe_actual <= 1:
         roe_actual *= 100
 
-    # NOTE:
-    # yfinance.get_earnings_estimate() is EPS-oriented (per-share estimate),
-    # and must not be treated as operating income.
-    # To avoid mixing units, operating income forecast is kept as None unless
-    # a reliable operating-income source is introduced.
     op_income_fy0 = None
     op_income_fy1 = None
     revenue_fy0 = None
@@ -181,20 +182,48 @@ def fetch_profitability_snapshot(code: str) -> dict:
     op_margin_fy1 = calc_margin_ratio(op_income_fy1, revenue_fy1)
 
     op_margin_actual = None
+    op_growth_actual = None
+    op_income_actual = None
+    op_income_prev = None
     try:
         financials = ticker.financials
         if financials is not None and not financials.empty:
-            op_income_actual = None
             revenue_actual = None
             for key in ["Operating Income", "OperatingIncome"]:
                 if key in financials.index:
                     op_income_actual = safe_float(financials.loc[key].iloc[0])
+                    if len(financials.columns) >= 2:
+                        op_income_prev = safe_float(financials.loc[key].iloc[1])
                     break
             for key in ["Total Revenue", "TotalRevenue", "Revenue"]:
                 if key in financials.index:
                     revenue_actual = safe_float(financials.loc[key].iloc[0])
                     break
             op_margin_actual = calc_margin_ratio(op_income_actual, revenue_actual)
+            op_growth_actual = calc_growth_rate(op_income_actual, op_income_prev)
+    except Exception:
+        pass
+
+    op_margin_q_latest = None
+    op_growth_q_yoy = None
+    op_income_q_latest = None
+    op_income_q_prev_year = None
+    try:
+        q_fin = ticker.quarterly_financials
+        if q_fin is not None and not q_fin.empty:
+            q_revenue_latest = None
+            for key in ["Operating Income", "OperatingIncome"]:
+                if key in q_fin.index:
+                    op_income_q_latest = safe_float(q_fin.loc[key].iloc[0])
+                    if len(q_fin.columns) >= 5:
+                        op_income_q_prev_year = safe_float(q_fin.loc[key].iloc[4])
+                    break
+            for key in ["Total Revenue", "TotalRevenue", "Revenue"]:
+                if key in q_fin.index:
+                    q_revenue_latest = safe_float(q_fin.loc[key].iloc[0])
+                    break
+            op_margin_q_latest = calc_margin_ratio(op_income_q_latest, q_revenue_latest)
+            op_growth_q_yoy = calc_growth_rate(op_income_q_latest, op_income_q_prev_year)
     except Exception:
         pass
 
@@ -203,6 +232,13 @@ def fetch_profitability_snapshot(code: str) -> dict:
         "roe_fy0": None,
         "roe_fy1": None,
         "op_margin_actual": op_margin_actual,
+        "op_growth_actual": op_growth_actual,
+        "op_income_actual": op_income_actual,
+        "op_income_prev": op_income_prev,
+        "op_margin_q_latest": op_margin_q_latest,
+        "op_growth_q_yoy": op_growth_q_yoy,
+        "op_income_q_latest": op_income_q_latest,
+        "op_income_q_prev_year": op_income_q_prev_year,
         "op_income_fy0": op_income_fy0,
         "op_income_fy1": op_income_fy1,
         "revenue_fy0": revenue_fy0,

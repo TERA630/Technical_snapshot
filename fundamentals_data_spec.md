@@ -91,3 +91,37 @@
 - 表示層: `render_*` で「予想/実績/参考値」のラベルを厳密表示
 
 以上。
+
+
+## 5. 新規実装仕様（ドメイン反映済み）
+
+### 5.1 実績営業成長率
+- 取得ソース: `ticker.financials` の `Operating Income`（年次）
+- 使用データ:
+  - 当期実績営業利益: 最新列 `iloc[0]`
+  - 前期実績営業利益: 次列 `iloc[1]`
+- 計算式:
+  - `calc_growth_rate(current, base) = (current / base - 1) * 100`
+- 出力キー:
+  - `op_growth_actual`
+
+### 5.2 直近四半期営業利益率
+- 取得ソース: `ticker.quarterly_financials`
+  - 営業利益: `Operating Income`
+  - 売上高: `Total Revenue`
+- 計算式:
+  - `calc_margin_ratio(営業利益, 売上高) = 営業利益 / 売上高 * 100`
+- 出力キー:
+  - `op_margin_q_latest`
+
+### 5.3 直近四半期の昨年同期比営業成長率
+- 取得ソース: `ticker.quarterly_financials` の `Operating Income`
+- 使用データ:
+  - 直近四半期: `iloc[0]`
+  - 昨年同期（4四半期前）: `iloc[4]`
+- 計算式:
+  - `calc_growth_rate(直近四半期営業利益, 昨年同期営業利益)`
+- 出力キー:
+  - `op_growth_q_yoy`
+
+※ 欠損/ゼロ除算時は `None`（表示層で `N/A` 想定）。
