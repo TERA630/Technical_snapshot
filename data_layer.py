@@ -185,6 +185,35 @@ def calc_growth_rate(current_value, base_value):
     return (current_value / base_value - 1.0) * 100
 
 
+def build_quarterly_data_status(q_income_stmt: pd.DataFrame | None) -> dict:
+    if q_income_stmt is None or q_income_stmt.empty:
+        return {
+            "quarterly_data_status": "四半期データなし",
+            "quarterly_periods_count": 0,
+            "quarterly_latest_period": None,
+        }
+
+    period_count = len(q_income_stmt.columns)
+    latest_period = None
+    try:
+        latest_period = pd.Timestamp(q_income_stmt.columns[0]).strftime("%Y-%m-%d")
+    except Exception:
+        latest_period = str(q_income_stmt.columns[0]) if period_count > 0 else None
+
+    if period_count >= 8:
+        status = "四半期データ十分（8期以上）"
+    elif period_count >= 4:
+        status = "四半期データあり（4〜7期）"
+    else:
+        status = "四半期データ不足（3期以下）"
+
+    return {
+        "quarterly_data_status": status,
+        "quarterly_periods_count": period_count,
+        "quarterly_latest_period": latest_period,
+    }
+
+
 def fetch_profitability_snapshot(code: str) -> dict:
     symbol = f"{code}.T"
     ticker = yf.Ticker(symbol)
@@ -242,12 +271,20 @@ def fetch_profitability_snapshot(code: str) -> dict:
     op_margin_q_ttm = None
     op_income_q_ttm_prev = None
     op_growth_q_ttm_yoy = None
+    quarterly_data_status = "四半期データなし"
+    quarterly_periods_count = 0
+    quarterly_latest_period = None
     try:
         # Quarterly specification: use quarterly_income_stmt as primary source.
         # fallback to quarterly_financials only when quarterly_income_stmt is unavailable.
         q_income_stmt = ticker.quarterly_income_stmt
         if q_income_stmt is None or q_income_stmt.empty:
             q_income_stmt = ticker.quarterly_financials
+
+        quarterly_meta = build_quarterly_data_status(q_income_stmt)
+        quarterly_data_status = quarterly_meta["quarterly_data_status"]
+        quarterly_periods_count = quarterly_meta["quarterly_periods_count"]
+        quarterly_latest_period = quarterly_meta["quarterly_latest_period"]
 
         q_op_income_series = fetch_statement_row_series(q_income_stmt, ["Operating Income", "OperatingIncome"])
         q_revenue_series = fetch_statement_row_series(q_income_stmt, ["Total Revenue", "TotalRevenue", "Revenue"])
@@ -285,6 +322,9 @@ def fetch_profitability_snapshot(code: str) -> dict:
         "op_margin_q_ttm": op_margin_q_ttm,
         "op_income_q_ttm_prev": op_income_q_ttm_prev,
         "op_growth_q_ttm_yoy": op_growth_q_ttm_yoy,
+        "quarterly_data_status": quarterly_data_status,
+        "quarterly_periods_count": quarterly_periods_count,
+        "quarterly_latest_period": quarterly_latest_period,
         "op_income_fy0": op_income_fy0,
         "op_income_fy1": op_income_fy1,
         "revenue_fy0": revenue_fy0,
