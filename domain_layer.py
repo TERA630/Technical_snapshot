@@ -77,6 +77,16 @@ def grade_close_position(position):
     return "安値圏で終了"
 
 
+def grade_range_position(position):
+    if position is None or (isinstance(position, float) and (math.isnan(position) or math.isinf(position))):
+        return "N/A"
+    if position >= 0.67:
+        return "上段"
+    if position >= 0.33:
+        return "中段"
+    return "下段"
+
+
 def calc_close_position(high_price, low_price, close_price):
     if high_price is None or low_price is None or close_price is None:
         return None
@@ -272,6 +282,9 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
 
     recent5_high = safe_float(hist["High"].shift(1).rolling(5).max().iloc[-1]) if len(hist) >= 6 else None
     recent20_high = safe_float(hist["High"].shift(1).rolling(20).max().iloc[-1]) if len(hist) >= 21 else None
+    recent60_high = safe_float(hist["High"].shift(1).rolling(60).max().iloc[-1]) if len(hist) >= 61 else None
+    recent60_low = safe_float(hist["Low"].shift(1).rolling(60).min().iloc[-1]) if len(hist) >= 61 else None
+    recent60_range_position = calc_close_position(recent60_high, recent60_low, latest)
 
     return {
         "name": stock_input.name,
@@ -320,6 +333,14 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         "recent20_high": recent20_high,
         "recent20_high_distance": calc_distance(latest, recent20_high),
         "recent20_high_distance_pct": calc_distance_pct(latest, recent20_high),
+        "recent60_high": recent60_high,
+        "recent60_high_distance": calc_distance(latest, recent60_high),
+        "recent60_high_distance_pct": calc_distance_pct(latest, recent60_high),
+        "recent60_low": recent60_low,
+        "recent60_low_distance": calc_distance(latest, recent60_low),
+        "recent60_low_distance_pct": calc_distance_pct(latest, recent60_low),
+        "recent60_range_position": recent60_range_position,
+        "recent60_range_position_label": grade_range_position(recent60_range_position),
         "volume": volume_now,
         "vol_ratio": vol_ratio,
         "prev_candle": prev_candle,
