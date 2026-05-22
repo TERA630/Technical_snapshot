@@ -99,7 +99,7 @@ def fmt_pct_no_sign_jp(value):
 def fmt_pct_jp(value):
     if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
         return "N/A"
-    return f"{abs(value):.2f}％"
+    return f"{value:+.2f}％"
 
 
 def fmt_per(value):

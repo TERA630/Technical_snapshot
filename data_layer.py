@@ -172,6 +172,35 @@ def calc_growth_rate(current_value, base_value):
     return (current_value / base_value - 1.0) * 100
 
 
+def build_quarterly_data_status(q_income_stmt: pd.DataFrame | None) -> dict:
+    if q_income_stmt is None or q_income_stmt.empty:
+        return {
+            "quarterly_data_status": "四半期データなし",
+            "quarterly_periods_count": 0,
+            "quarterly_latest_period": None,
+        }
+
+    period_count = len(q_income_stmt.columns)
+    latest_period = None
+    try:
+        latest_period = pd.Timestamp(q_income_stmt.columns[0]).strftime("%Y-%m-%d")
+    except Exception:
+        latest_period = str(q_income_stmt.columns[0]) if period_count > 0 else None
+
+    if period_count >= 8:
+        status = "四半期データ十分（8期以上）"
+    elif period_count >= 4:
+        status = "四半期データあり（4〜7期）"
+    else:
+        status = "四半期データ不足（3期以下）"
+
+    return {
+        "quarterly_data_status": status,
+        "quarterly_periods_count": period_count,
+        "quarterly_latest_period": latest_period,
+    }
+
+
 def fetch_profitability_snapshot(code: str) -> dict:
     symbol = f"{code}.T"
     ticker = yf.Ticker(symbol)
