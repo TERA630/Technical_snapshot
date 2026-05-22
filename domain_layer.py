@@ -77,6 +77,16 @@ def grade_close_position(position):
     return "安値圏で終了"
 
 
+def grade_range_zone(position):
+    if position is None or (isinstance(position, float) and (math.isnan(position) or math.isinf(position))):
+        return "N/A"
+    if position >= 0.60:
+        return "高値圏"
+    if position >= 0.30:
+        return "中段"
+    return "安値圏"
+
+
 def calc_close_position(high_price, low_price, close_price):
     if high_price is None or low_price is None or close_price is None:
         return None
@@ -272,6 +282,9 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
 
     recent5_high = safe_float(hist["High"].shift(1).rolling(5).max().iloc[-1]) if len(hist) >= 6 else None
     recent20_high = safe_float(hist["High"].shift(1).rolling(20).max().iloc[-1]) if len(hist) >= 21 else None
+    recent60_high = safe_float(hist["High"].shift(1).rolling(60).max().iloc[-1]) if len(hist) >= 61 else None
+    recent60_low = safe_float(hist["Low"].shift(1).rolling(60).min().iloc[-1]) if len(hist) >= 61 else None
+    recent60_range_position = calc_close_position(recent60_high, recent60_low, latest)
 
     return {
         "name": stock_input.name,
@@ -320,6 +333,10 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         "recent20_high": recent20_high,
         "recent20_high_distance": calc_distance(latest, recent20_high),
         "recent20_high_distance_pct": calc_distance_pct(latest, recent20_high),
+        "recent60_high": recent60_high,
+        "recent60_low": recent60_low,
+        "recent60_range_position": recent60_range_position,
+        "recent60_range_zone": grade_range_zone(recent60_range_position),
         "volume": volume_now,
         "vol_ratio": vol_ratio,
         "prev_candle": prev_candle,
@@ -342,15 +359,6 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         "op_growth_actual": profitability.get("op_growth_actual"),
         "op_income_actual": profitability.get("op_income_actual"),
         "op_income_prev": profitability.get("op_income_prev"),
-        "op_margin_q_latest": profitability.get("op_margin_q_latest"),
-        "op_growth_q_yoy": profitability.get("op_growth_q_yoy"),
-        "op_income_q_latest": profitability.get("op_income_q_latest"),
-        "op_income_q_prev_year": profitability.get("op_income_q_prev_year"),
-        "op_income_q_ttm": profitability.get("op_income_q_ttm"),
-        "revenue_q_ttm": profitability.get("revenue_q_ttm"),
-        "op_margin_q_ttm": profitability.get("op_margin_q_ttm"),
-        "op_income_q_ttm_prev": profitability.get("op_income_q_ttm_prev"),
-        "op_growth_q_ttm_yoy": profitability.get("op_growth_q_ttm_yoy"),
         "op_margin_fy0": profitability.get("op_margin_fy0"),
         "op_margin_fy1": profitability.get("op_margin_fy1"),
         "annual_dividend": dividend.get("annual_dividend"),
