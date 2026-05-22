@@ -77,14 +77,14 @@ def grade_close_position(position):
     return "安値圏で終了"
 
 
-def grade_range_position(position):
+def grade_range_zone(position):
     if position is None or (isinstance(position, float) and (math.isnan(position) or math.isinf(position))):
         return "N/A"
-    if position >= 0.67:
-        return "上段"
-    if position >= 0.33:
+    if position >= 0.60:
+        return "高値圏"
+    if position >= 0.30:
         return "中段"
-    return "下段"
+    return "安値圏"
 
 
 def calc_close_position(high_price, low_price, close_price):
@@ -334,13 +334,9 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         "recent20_high_distance": calc_distance(latest, recent20_high),
         "recent20_high_distance_pct": calc_distance_pct(latest, recent20_high),
         "recent60_high": recent60_high,
-        "recent60_high_distance": calc_distance(latest, recent60_high),
-        "recent60_high_distance_pct": calc_distance_pct(latest, recent60_high),
         "recent60_low": recent60_low,
-        "recent60_low_distance": calc_distance(latest, recent60_low),
-        "recent60_low_distance_pct": calc_distance_pct(latest, recent60_low),
         "recent60_range_position": recent60_range_position,
-        "recent60_range_position_label": grade_range_position(recent60_range_position),
+        "recent60_range_zone": grade_range_zone(recent60_range_position),
         "volume": volume_now,
         "vol_ratio": vol_ratio,
         "prev_candle": prev_candle,
