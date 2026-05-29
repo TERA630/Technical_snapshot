@@ -18,6 +18,7 @@ from stock_constants import (
     ERROR_MESSAGES,
     NA_TEXT,
     PREV_SESSION_THRESHOLDS,
+    PRICE_SOURCE_LABELS,
     RANGE_ATR_LABELS,
     RANGE_ATR_THRESHOLDS,
     RANGE_ZONE_LABELS,
@@ -29,6 +30,7 @@ from stock_constants import (
     WICK_SHAPE_LABELS,
     WICK_SHAPE_THRESHOLDS,
 )
+from stock_types import StructuredStockSnapshot, to_structured_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +92,24 @@ def fetch_optional_snapshot(diagnostics: list[dict], field: str, fetch_func, def
         add_diagnostic(diagnostics, "data_missing", field, "取得結果がありません")
         return default_value
     return value
+
+
+def build_latest_price_timestamp(date_text: str, latest_bar_time: str) -> str:
+    return f"{date_text} {latest_bar_time}"
+
+
+def log_snapshot_result(snapshot: dict):
+    logger.info(
+        "stock snapshot acquired: name=%s code=%s acquired_at=%s latest=%s latest_price_source=%s latest_price_timestamp=%s error=%s diagnostics_count=%s",
+        snapshot.get("name"),
+        snapshot.get("code"),
+        snapshot.get("acquired_at"),
+        snapshot.get("latest"),
+        snapshot.get("latest_price_source"),
+        snapshot.get("latest_price_timestamp"),
+        snapshot.get("error"),
+        len(snapshot.get("diagnostics") or []),
+    )
 
 
 def calc_atr(df: pd.DataFrame, period: int = ATR_PERIOD) -> pd.Series:
@@ -310,41 +330,53 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         hist = repo.fetch_daily_history(stock_input.code, period="4mo")
     except Exception as exc:
         add_diagnostic(diagnostics, "external_api_failure", "daily_history", str(exc))
-        return {
+        snapshot = {
             "name": stock_input.name,
             "code": stock_input.code,
+            "acquired_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "error": ERROR_MESSAGES["insufficient_price_data"],
             "diagnostics": diagnostics,
         }
+        log_snapshot_result(snapshot)
+        return snapshot
     if hist.empty or len(hist) < 30:
         add_diagnostic(diagnostics, "data_missing", "daily_history", "日足が30件未満です")
-        return {
+        snapshot = {
             "name": stock_input.name,
             "code": stock_input.code,
+            "acquired_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "error": ERROR_MESSAGES["insufficient_price_data"],
             "diagnostics": diagnostics,
         }
+        log_snapshot_result(snapshot)
+        return snapshot
 
     required_cols = {"Open", "High", "Low", "Close", "Volume"}
     missing_cols = sorted(required_cols - set(hist.columns))
     if missing_cols:
         add_diagnostic(diagnostics, "column_missing", "daily_history", f"不足列: {', '.join(missing_cols)}")
-        return {
+        snapshot = {
             "name": stock_input.name,
             "code": stock_input.code,
+            "acquired_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "error": ERROR_MESSAGES["insufficient_price_data"],
             "diagnostics": diagnostics,
         }
+        log_snapshot_result(snapshot)
+        return snapshot
 
     hist = hist[["Open", "High", "Low", "Close", "Volume"]].dropna().copy()
     if len(hist) < 30:
         add_diagnostic(diagnostics, "data_missing", "daily_history", "欠損除去後の日足が30件未満です")
-        return {
+        snapshot = {
             "name": stock_input.name,
             "code": stock_input.code,
+            "acquired_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "error": ERROR_MESSAGES["insufficient_price_data"],
             "diagnostics": diagnostics,
         }
+        log_snapshot_result(snapshot)
+        return snapshot
     hist["MA5"] = hist["Close"].rolling(5).mean()
     hist["MA25"] = hist["Close"].rolling(25).mean()
     hist["RSI14"] = calc_rsi(hist["Close"], RSI_PERIOD)
@@ -386,6 +418,7 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         {},
     )
     latest_bar_time = UNIT_LABELS["closing_price"]
+    latest_price_source = PRICE_SOURCE_LABELS["daily_close"]
     open_price = safe_float(last["Open"])
     high_price = safe_float(last["High"])
     low_price = safe_float(last["Low"])
@@ -394,6 +427,7 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
     if intraday is not None:
         latest = intraday.get("latest_price") if intraday.get("latest_price") is not None else latest
         latest_bar_time = intraday.get("latest_bar_time") or latest_bar_time
+        latest_price_source = PRICE_SOURCE_LABELS["intraday"]
         open_price = intraday.get("open") if intraday.get("open") is not None else open_price
         high_price = intraday.get("high") if intraday.get("high") is not None else high_price
         low_price = intraday.get("low") if intraday.get("low") is not None else low_price
@@ -436,12 +470,16 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
     recent60_low = safe_float(hist["Low"].shift(1).rolling(60).min().iloc[-1]) if len(hist) >= 61 else None
     recent60_range_position = calc_close_position(recent60_high, recent60_low, latest)
 
-    return {
+    date_text = hist.index[-1].strftime("%Y-%m-%d")
+    acquired_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    snapshot = {
         "name": stock_input.name,
         "code": stock_input.code,
-        "date": hist.index[-1].strftime("%Y-%m-%d"),
-        "acquired_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "date": date_text,
+        "acquired_at": acquired_at,
         "latest_bar_time": latest_bar_time,
+        "latest_price_source": latest_price_source,
+        "latest_price_timestamp": build_latest_price_timestamp(date_text, latest_bar_time),
         "prev_open": prev_open,
         "prev_high": prev_high,
         "prev_low": prev_low,
@@ -509,8 +547,6 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         "op_growth_actual": profitability.get("op_growth_actual"),
         "op_income_actual": profitability.get("op_income_actual"),
         "op_income_prev": profitability.get("op_income_prev"),
-        "op_margin_fy0": profitability.get("op_margin_fy0"),
-        "op_margin_fy1": profitability.get("op_margin_fy1"),
         "annual_dividend": dividend.get("annual_dividend"),
         "latest_dividend": dividend.get("latest_dividend"),
         "latest_dividend_date": dividend.get("latest_dividend_date"),
@@ -518,3 +554,12 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         "error": None,
         "diagnostics": diagnostics,
     }
+    log_snapshot_result(snapshot)
+    return snapshot
+
+
+def get_structured_stock_snapshot(
+    stock_input: StockInput,
+    repository: StockDataRepository | None = None,
+) -> StructuredStockSnapshot:
+    return to_structured_snapshot(get_stock_snapshot(stock_input, repository))

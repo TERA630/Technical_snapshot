@@ -2,8 +2,10 @@
   "name": "トヨタ自動車",
   "code": "7203",
   "date": "2026-05-29",
-  "acquired_at": "2026-05-29 16:02:06",
+  "acquired_at": "2026-05-29 17:30:37",
   "latest_bar_time": "15:20",
+  "latest_price_source": "intraday_5m",
+  "latest_price_timestamp": "2026-05-29 15:20",
   "prev_open": 3039.0,
   "prev_high": 3072.0,
   "prev_low": 3023.0,
@@ -71,11 +73,10 @@
   "op_growth_actual": -21.464947140975056,
   "op_income_actual": 3766216000000.0,
   "op_income_prev": 4795586000000.0,
-  "op_margin_fy0": null,
-  "op_margin_fy1": null,
   "annual_dividend": 95.0,
   "latest_dividend": 50.0,
   "latest_dividend_date": "2026-03-30",
   "dividend_yield": 3.101534443356187,
-  "error": null
+  "error": null,
+  "diagnostics": []
 }

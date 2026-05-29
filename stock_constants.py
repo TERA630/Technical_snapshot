@@ -3,6 +3,8 @@ from __future__ import annotations
 ENCODING = "utf-8"
 TIMEZONE = "Asia/Tokyo"
 NA_TEXT = "N/A"
+LOG_DIR = "Logs"
+LOG_FILE = "stock_snapshot.log"
 
 RSI_PERIOD = 14
 ATR_PERIOD = 14
@@ -54,7 +56,6 @@ DISPLAY_LABELS = {
     "actual_roe": "年実績ROE",
     "actual_op_margin": "年実績営業利益率",
     "actual_op_growth": "年実績営業成長率",
-    "forecast_op_margin": "年予想営業利益率",
     "prev_high": "前日高値",
     "recent5_high": "直近5日高値",
     "recent20_high": "直近20日高値",
@@ -84,6 +85,11 @@ UNIT_LABELS = {
     "yen": "円",
     "percent_jp": "％",
     "closing_price": "終値",
+}
+
+PRICE_SOURCE_LABELS = {
+    "intraday": "intraday_5m",
+    "daily_close": "daily_close",
 }
 
 RANGE_ATR_LABELS = {

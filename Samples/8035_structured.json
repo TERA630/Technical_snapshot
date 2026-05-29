@@ -1,0 +1,91 @@
+{
+  "identity": {
+    "name": "東京エレクトロン",
+    "code": "8035",
+    "date": "2026-05-29",
+    "acquired_at": "2026-05-29 17:30:43",
+    "error": null
+  },
+  "price": {
+    "latest_bar_time": "15:20",
+    "latest_price_source": "intraday_5m",
+    "latest_price_timestamp": "2026-05-29 15:20",
+    "open": 52750.0,
+    "high": 53320.0,
+    "low": 52030.0,
+    "latest": 52760.0,
+    "day_change_pct": 0.8409785932721681,
+    "volume": 1877200.0
+  },
+  "vwap": {
+    "value": 52672.97766176575,
+    "diff_pct": 0.1652124905355823
+  },
+  "technical": {
+    "ma5": 52168.0,
+    "dev5": 1.1347952767980285,
+    "ma25": 49197.2,
+    "dev25": 7.241875553893307,
+    "rsi": 62.63839065678406,
+    "atr14": 2087.123550128021,
+    "trend": "上昇トレンド"
+  },
+  "range": {
+    "day_range": 1290.0,
+    "day_range_atr": 0.6180755326731248,
+    "day_range_label": "通常値幅",
+    "day_close_position": 0.5658914728682171,
+    "day_close_position_label": "中段で終了",
+    "ma25_distance": 3562.800000000003,
+    "ma25_distance_atr": 1.7070383781455898
+  },
+  "previous_session": {
+    "open": 52000.0,
+    "high": 52730.0,
+    "low": 51150.0,
+    "close": 52320.0,
+    "change_pct": -0.34285714285714475,
+    "candle": "陽線",
+    "wick_shape": "下ヒゲ長め",
+    "range_atr": 0.7570227454446025,
+    "range_label": "通常値幅",
+    "close_position": 0.740506329113924,
+    "close_position_label": "高値圏で終了",
+    "volume": 3146300.0,
+    "vol_ratio": -0.531910689587034,
+    "session_judgement": "押し",
+    "evaluation": "強い上昇"
+  },
+  "breakline": {
+    "recent5_high": 54700.0,
+    "recent5_high_distance": -1940.0,
+    "recent5_high_distance_pct": -3.546617915904937,
+    "recent20_high": 54700.0,
+    "recent20_high_distance": -1940.0,
+    "recent20_high_distance_pct": -3.546617915904937,
+    "recent60_high": 54700.0,
+    "recent60_low": 36520.0,
+    "recent60_range_position": 0.8932893289328933,
+    "recent60_range_zone": "高値圏"
+  },
+  "valuation": {
+    "per_actual": 41.92091,
+    "per_fy0": 34.28313961561687,
+    "per_fy1": 28.01325245595147,
+    "eps_actual": 1250.45,
+    "eps_fy0": 1538.9489,
+    "eps_fy1": 1883.3943
+  },
+  "profitability": {
+    "roe_actual": 29.270000000000003,
+    "op_margin_actual": null,
+    "op_growth_actual": null
+  },
+  "dividend": {
+    "annual_dividend": 628.0,
+    "latest_dividend": 364.0,
+    "latest_dividend_date": "2026-03-30",
+    "dividend_yield": 1.190295678544352
+  },
+  "diagnostics": []
+}

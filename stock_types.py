@@ -19,6 +19,8 @@ class StockIdentity(TypedDict):
 
 class PriceSnapshot(TypedDict, total=False):
     latest_bar_time: str
+    latest_price_source: str
+    latest_price_timestamp: str
     open: float | None
     high: float | None
     low: float | None
@@ -96,8 +98,6 @@ class ProfitabilitySnapshot(TypedDict, total=False):
     roe_actual: float | None
     op_margin_actual: float | None
     op_growth_actual: float | None
-    op_margin_fy0: float | None
-    op_margin_fy1: float | None
 
 
 class DividendSnapshot(TypedDict, total=False):
@@ -135,6 +135,8 @@ def to_structured_snapshot(stock: FlatStockSnapshot) -> StructuredStockSnapshot:
         },
         "price": {
             "latest_bar_time": stock.get("latest_bar_time"),
+            "latest_price_source": stock.get("latest_price_source"),
+            "latest_price_timestamp": stock.get("latest_price_timestamp"),
             "open": stock.get("open"),
             "high": stock.get("high"),
             "low": stock.get("low"),
@@ -205,8 +207,6 @@ def to_structured_snapshot(stock: FlatStockSnapshot) -> StructuredStockSnapshot:
             "roe_actual": stock.get("roe_actual"),
             "op_margin_actual": stock.get("op_margin_actual"),
             "op_growth_actual": stock.get("op_growth_actual"),
-            "op_margin_fy0": stock.get("op_margin_fy0"),
-            "op_margin_fy1": stock.get("op_margin_fy1"),
         },
         "dividend": {
             "annual_dividend": stock.get("annual_dividend"),

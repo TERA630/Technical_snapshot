@@ -172,7 +172,6 @@ def render_stock_block(stock, include_market: bool, market_block: str) -> str:
     else:
         base_year = pd.Timestamp.now().year
     actual_year = base_year - 1
-    forecast_year = base_year
 
     lines = [
         f"【{DISPLAY_LABELS['stock']}】{stock['name']} ({stock['code']})",
@@ -211,7 +210,6 @@ def render_stock_block(stock, include_market: bool, market_block: str) -> str:
         f"{actual_year}{DISPLAY_LABELS['actual_roe']} {fmt_pct_no_sign_jp(stock.get('roe_actual'))}",
         f"{actual_year}{DISPLAY_LABELS['actual_op_margin']} {fmt_pct_no_sign_jp(stock.get('op_margin_actual'))}",
         f"{actual_year}{DISPLAY_LABELS['actual_op_growth']} {fmt_pct_no_sign_jp(stock.get('op_growth_actual'))}",
-        f"{forecast_year}{DISPLAY_LABELS['forecast_op_margin']} {fmt_pct_no_sign_jp(stock.get('op_margin_fy0'))}",
         "",
         SECTION_TITLES["breakline"],
         f"{DISPLAY_LABELS['prev_high']}：{fmt_price(stock['prev_high'])}",

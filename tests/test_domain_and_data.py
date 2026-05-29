@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import math
+import logging
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -17,11 +19,13 @@ from domain_layer import (
     calc_close_position,
     calc_rsi,
     get_stock_snapshot,
+    get_structured_stock_snapshot,
     grade_prev_session,
     grade_range_by_atr,
     grade_trend,
 )
 from presentation_layer import render_stock_block
+from stock_logging import setup_stock_logging
 from stock_types import to_structured_snapshot
 
 
@@ -63,8 +67,6 @@ class FakeRepository:
             "op_income_fy1": None,
             "revenue_fy0": 1000,
             "revenue_fy1": 1100,
-            "op_margin_fy0": None,
-            "op_margin_fy1": None,
         }
         self.dividend = {
             "annual_dividend": 4,
@@ -135,6 +137,8 @@ class DomainAndDataTests(unittest.TestCase):
 
         self.assertIsNone(snapshot["error"])
         self.assertEqual(snapshot["latest_bar_time"], "終値")
+        self.assertEqual(snapshot["latest_price_source"], "daily_close")
+        self.assertTrue(snapshot["latest_price_timestamp"].endswith("終値"))
         self.assertEqual(snapshot["per_fy0"], 14)
         self.assertGreater(snapshot["dividend_yield"], 0)
         self.assertEqual(snapshot["diagnostics"][0]["field"], "intraday")
@@ -162,8 +166,40 @@ class DomainAndDataTests(unittest.TestCase):
 
         self.assertEqual(structured["identity"]["code"], "0000")
         self.assertIn("latest", structured["price"])
+        self.assertIn("latest_price_timestamp", structured["price"])
         self.assertIn("per_fy0", structured["valuation"])
         self.assertIn("dividend_yield", structured["dividend"])
+
+    def test_structured_snapshot_api_returns_grouped_snapshot(self):
+        structured = get_structured_stock_snapshot(StockInput("テスト", "0000"), FakeRepository())
+
+        self.assertEqual(structured["identity"]["name"], "テスト")
+        self.assertIn("previous_session", structured)
+        self.assertIn("diagnostics", structured)
+
+    def test_snapshot_logging_can_write_to_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_path = setup_stock_logging(tmpdir)
+            try:
+                snapshot = get_stock_snapshot(StockInput("テスト", "0000"), FakeRepository())
+
+                for handler in logging.getLogger("domain_layer").handlers:
+                    handler.flush()
+
+                log_text = log_path.read_text(encoding="utf-8")
+                self.assertIn("stock snapshot acquired", log_text)
+                self.assertIn(snapshot["latest_price_timestamp"], log_text)
+            finally:
+                logger = logging.getLogger("domain_layer")
+                for handler in list(logger.handlers):
+                    if isinstance(handler, logging.FileHandler):
+                        try:
+                            same_dir = Path(handler.baseFilename).parent.samefile(tmpdir)
+                        except OSError:
+                            same_dir = False
+                        if same_dir:
+                            logger.removeHandler(handler)
+                            handler.close()
 
 
 if __name__ == "__main__":

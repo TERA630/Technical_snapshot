@@ -9,6 +9,7 @@ from datetime import datetime
 from data_layer import fetch_market_snapshot
 from domain_layer import StockInput, get_stock_snapshot, grade_trend
 from presentation_layer import load_watchlist, render_market_block, render_stock_block
+from stock_logging import setup_stock_logging
 
 try:
     import tkinter as tk
@@ -178,6 +179,7 @@ class StockEntryPromptApp:
 
 
 def main():
+    setup_stock_logging()
     root = tk.Tk()
     app = StockEntryPromptApp(root)
     root.mainloop()

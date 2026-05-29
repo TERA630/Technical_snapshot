@@ -1,0 +1,91 @@
+{
+  "identity": {
+    "name": "オムロン",
+    "code": "6645",
+    "date": "2026-05-29",
+    "acquired_at": "2026-05-29 17:30:46",
+    "error": null
+  },
+  "price": {
+    "latest_bar_time": "15:20",
+    "latest_price_source": "intraday_5m",
+    "latest_price_timestamp": "2026-05-29 15:20",
+    "open": 5741.0,
+    "high": 5867.0,
+    "low": 5702.0,
+    "latest": 5763.0,
+    "day_change_pct": 2.965874575665528,
+    "volume": 928900.0
+  },
+  "vwap": {
+    "value": 5770.9016758172775,
+    "diff_pct": -0.1369227247518201
+  },
+  "technical": {
+    "ma5": 5571.8,
+    "dev5": 3.4315661007214837,
+    "ma25": 5596.72,
+    "dev25": 2.9710258865907058,
+    "rsi": 57.76224215811027,
+    "atr14": 251.49095594062015,
+    "trend": "もみ合い / 戻り局面"
+  },
+  "range": {
+    "day_range": 165.0,
+    "day_range_atr": 0.6560872114978097,
+    "day_range_label": "通常値幅",
+    "day_close_position": 0.3696969696969697,
+    "day_close_position_label": "中段で終了",
+    "ma25_distance": 166.27999999999975,
+    "ma25_distance_atr": 0.6611768577445796
+  },
+  "previous_session": {
+    "open": 5367.0,
+    "high": 5644.0,
+    "low": 5326.0,
+    "close": 5597.0,
+    "change_pct": 3.9947974730583535,
+    "candle": "陽線",
+    "wick_shape": "実体大きめ",
+    "range_atr": 1.2644589894321423,
+    "range_label": "大きめ",
+    "close_position": 0.8522012578616353,
+    "close_position_label": "高値圏で終了",
+    "volume": 2118300.0,
+    "vol_ratio": 5.6305896374013065,
+    "session_judgement": "中立",
+    "evaluation": "中立"
+  },
+  "breakline": {
+    "recent5_high": 5771.0,
+    "recent5_high_distance": -8.0,
+    "recent5_high_distance_pct": -0.13862415525904836,
+    "recent20_high": 6289.0,
+    "recent20_high_distance": -526.0,
+    "recent20_high_distance_pct": -8.363809826681512,
+    "recent60_high": 6289.0,
+    "recent60_low": 4198.0,
+    "recent60_range_position": 0.7484457197513151,
+    "recent60_range_zone": "高値圏"
+  },
+  "valuation": {
+    "per_actual": 32.99822,
+    "per_fy0": 23.940308001222316,
+    "per_fy1": 20.519149069499495,
+    "eps_actual": 174.07,
+    "eps_fy0": 240.72372,
+    "eps_fy1": 280.8596
+  },
+  "profitability": {
+    "roe_actual": 3.8219999999999996,
+    "op_margin_actual": 7.082231061187174,
+    "op_growth_actual": 62.45243612851543
+  },
+  "dividend": {
+    "annual_dividend": 104.0,
+    "latest_dividend": 52.0,
+    "latest_dividend_date": "2026-03-30",
+    "dividend_yield": 1.8046156515703626
+  },
+  "diagnostics": []
+}

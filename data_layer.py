@@ -219,9 +219,6 @@ def fetch_profitability_snapshot(code: str) -> dict:
     except Exception:
         pass
 
-    op_margin_fy0 = calc_margin_ratio(op_income_fy0, revenue_fy0)
-    op_margin_fy1 = calc_margin_ratio(op_income_fy1, revenue_fy1)
-
     op_margin_actual = None
     op_growth_actual = None
     op_income_actual = None
@@ -255,8 +252,6 @@ def fetch_profitability_snapshot(code: str) -> dict:
         "op_income_fy1": op_income_fy1,
         "revenue_fy0": revenue_fy0,
         "revenue_fy1": revenue_fy1,
-        "op_margin_fy0": op_margin_fy0,
-        "op_margin_fy1": op_margin_fy1,
     }
 
 

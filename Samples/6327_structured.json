@@ -1,0 +1,91 @@
+{
+  "identity": {
+    "name": "北川電機",
+    "code": "6327",
+    "date": "2026-05-29",
+    "acquired_at": "2026-05-29 17:30:39",
+    "error": null
+  },
+  "price": {
+    "latest_bar_time": "15:20",
+    "latest_price_source": "intraday_5m",
+    "latest_price_timestamp": "2026-05-29 15:20",
+    "open": 4760.0,
+    "high": 6000.0,
+    "low": 4690.0,
+    "latest": 5910.0,
+    "day_change_pct": 18.199999999999996,
+    "volume": 2182600.0
+  },
+  "vwap": {
+    "value": 5480.783698341429,
+    "diff_pct": 7.831294305382985
+  },
+  "technical": {
+    "ma5": 4445.0,
+    "dev5": 32.95838020247468,
+    "ma25": 3018.52,
+    "dev25": 95.79131494904789,
+    "rsi": 85.17496034372232,
+    "atr14": 482.716377444759,
+    "trend": "上昇トレンド"
+  },
+  "range": {
+    "day_range": 1310.0,
+    "day_range_atr": 2.713808897337264,
+    "day_range_label": "急拡大",
+    "day_close_position": 0.9312977099236641,
+    "day_close_position_label": "高値圏で終了",
+    "ma25_distance": 2891.48,
+    "ma25_distance_atr": 5.990018435475383
+  },
+  "previous_session": {
+    "open": 3850.0,
+    "high": 5000.0,
+    "low": 3675.0,
+    "close": 5000.0,
+    "change_pct": 16.279069767441868,
+    "candle": "陽線",
+    "wick_shape": "実体大きめ",
+    "range_atr": 2.744883045016698,
+    "range_label": "急拡大",
+    "close_position": 1.0,
+    "close_position_label": "高値圏で終了",
+    "volume": 1309500.0,
+    "vol_ratio": 79.6567383281428,
+    "session_judgement": "中立",
+    "evaluation": "中立"
+  },
+  "breakline": {
+    "recent5_high": 5000.0,
+    "recent5_high_distance": 910.0,
+    "recent5_high_distance_pct": 18.199999999999996,
+    "recent20_high": 5000.0,
+    "recent20_high_distance": 910.0,
+    "recent20_high_distance_pct": 18.199999999999996,
+    "recent60_high": 5000.0,
+    "recent60_low": 1390.0,
+    "recent60_range_position": 1.2520775623268698,
+    "recent60_range_zone": "高値圏"
+  },
+  "valuation": {
+    "per_actual": 96.88525,
+    "per_fy0": 68.96149358226371,
+    "per_fy1": 45.95645412130638,
+    "eps_actual": 61.0,
+    "eps_fy0": 85.7,
+    "eps_fy1": 128.6
+  },
+  "profitability": {
+    "roe_actual": 11.831000399999999,
+    "op_margin_actual": null,
+    "op_growth_actual": null
+  },
+  "dividend": {
+    "annual_dividend": 12.0,
+    "latest_dividend": 12.0,
+    "latest_dividend_date": "2025-06-27",
+    "dividend_yield": 0.20304568527918782
+  },
+  "diagnostics": []
+}

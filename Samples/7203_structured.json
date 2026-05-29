@@ -1,0 +1,91 @@
+{
+  "identity": {
+    "name": "トヨタ自動車",
+    "code": "7203",
+    "date": "2026-05-29",
+    "acquired_at": "2026-05-29 17:30:37",
+    "error": null
+  },
+  "price": {
+    "latest_bar_time": "15:20",
+    "latest_price_source": "intraday_5m",
+    "latest_price_timestamp": "2026-05-29 15:20",
+    "open": 3063.0,
+    "high": 3082.0,
+    "low": 3049.0,
+    "latest": 3063.0,
+    "day_change_pct": 1.08910891089109,
+    "volume": 10963400.0
+  },
+  "vwap": {
+    "value": 3067.1903940991547,
+    "diff_pct": -0.13661995379277148
+  },
+  "technical": {
+    "ma5": 3025.6,
+    "dev5": 1.2361184558434823,
+    "ma25": 3017.84,
+    "dev25": 1.49643453595949,
+    "rsi": 48.303541624240566,
+    "atr14": 80.9709475299282,
+    "trend": "もみ合い / 戻り局面"
+  },
+  "range": {
+    "day_range": 33.0,
+    "day_range_atr": 0.407553585658642,
+    "day_range_label": "浅い値幅",
+    "day_close_position": 0.42424242424242425,
+    "day_close_position_label": "中段で終了",
+    "ma25_distance": 45.159999999999854,
+    "ma25_distance_atr": 0.5577309069195217
+  },
+  "previous_session": {
+    "open": 3039.0,
+    "high": 3072.0,
+    "low": 3023.0,
+    "close": 3030.0,
+    "change_pct": 0.7313829787233939,
+    "candle": "陰線",
+    "wick_shape": "上ヒゲ長め",
+    "range_atr": 0.6051553241598018,
+    "range_label": "通常値幅",
+    "close_position": 0.14285714285714285,
+    "close_position_label": "安値圏で終了",
+    "volume": 25312200.0,
+    "vol_ratio": -13.430703641870245,
+    "session_judgement": "中立",
+    "evaluation": "中立"
+  },
+  "breakline": {
+    "recent5_high": 3108.0,
+    "recent5_high_distance": -45.0,
+    "recent5_high_distance_pct": -1.4478764478764505,
+    "recent20_high": 3135.0,
+    "recent20_high_distance": -72.0,
+    "recent20_high_distance_pct": -2.2966507177033524,
+    "recent60_high": 3957.0,
+    "recent60_low": 2798.0,
+    "recent60_range_position": 0.2286453839516825,
+    "recent60_range_zone": "安値圏"
+  },
+  "valuation": {
+    "per_actual": 10.307672,
+    "per_fy0": 9.76262665717241,
+    "per_fy1": 8.624385702576163,
+    "eps_actual": 295.12,
+    "eps_fy0": 313.74753,
+    "eps_fy1": 355.15573
+  },
+  "profitability": {
+    "roe_actual": 10.233,
+    "op_margin_actual": 7.430639373990135,
+    "op_growth_actual": -21.464947140975056
+  },
+  "dividend": {
+    "annual_dividend": 95.0,
+    "latest_dividend": 50.0,
+    "latest_dividend_date": "2026-03-30",
+    "dividend_yield": 3.101534443356187
+  },
+  "diagnostics": []
+}
