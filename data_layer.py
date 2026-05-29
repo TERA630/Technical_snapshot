@@ -3,13 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import yfinance as yf
 
-RSI_PERIOD = 14
-ATR_PERIOD = 14
-MARKET_SYMBOLS = {
-    "WTI": "CL=F",
-    "銅": "HG=F",
-    "NASDAQ": "^IXIC",
-}
+from stock_constants import ATR_PERIOD, MARKET_SYMBOLS, NA_TEXT, RSI_PERIOD, STATEMENT_ROW_KEYS, TIMEZONE
 
 
 def safe_float(value):
@@ -23,16 +17,16 @@ def safe_float(value):
 
 def fmt_time(value):
     if value is None:
-        return "N/A"
+        return NA_TEXT
     if isinstance(value, str):
-        return value or "N/A"
+        return value or NA_TEXT
     try:
         ts = pd.Timestamp(value)
         if ts.tzinfo is not None:
-            ts = ts.tz_convert("Asia/Tokyo")
+            ts = ts.tz_convert(TIMEZONE)
         return ts.strftime("%H:%M")
     except Exception:
-        return "N/A"
+        return NA_TEXT
 
 
 def fetch_intraday_vwap(code: str, interval: str = "5m"):
@@ -98,13 +92,13 @@ def fetch_market_snapshot(infer_trend_func):
     for name, symbol in MARKET_SYMBOLS.items():
         df = fetch_history(symbol, period="10d")
         if len(df) < 2:
-            out[name] = {"latest": None, "change_pct": None, "trend": "N/A"}
+            out[name] = {"latest": None, "change_pct": None, "trend": NA_TEXT}
             continue
         latest = safe_float(df["Close"].iloc[-1])
         prev = safe_float(df["Close"].iloc[-2])
         ma5 = safe_float(df["Close"].rolling(5).mean().iloc[-1]) if len(df) >= 5 else None
         ma25 = safe_float(df["Close"].rolling(25).mean().iloc[-1]) if len(df) >= 25 else None
-        trend = infer_trend_func(latest, ma5, ma25, None) if ma5 is not None else "N/A"
+        trend = infer_trend_func(latest, ma5, ma25, None) if ma5 is not None else NA_TEXT
         change_pct = None if latest in (None, 0) or prev in (None, 0) else (latest / prev - 1.0) * 100
         out[name] = {"latest": latest, "change_pct": change_pct, "trend": trend}
     return out
@@ -237,8 +231,8 @@ def fetch_profitability_snapshot(code: str) -> dict:
         if income_stmt is None or income_stmt.empty:
             income_stmt = ticker.financials
 
-        op_income_series = fetch_statement_row_series(income_stmt, ["Operating Income", "OperatingIncome"])
-        revenue_series = fetch_statement_row_series(income_stmt, ["Total Revenue", "TotalRevenue", "Revenue"])
+        op_income_series = fetch_statement_row_series(income_stmt, STATEMENT_ROW_KEYS["operating_income"])
+        revenue_series = fetch_statement_row_series(income_stmt, STATEMENT_ROW_KEYS["total_revenue"])
 
         op_income_actual = fetch_statement_value_by_offset(op_income_series, 0)
         op_income_prev = fetch_statement_value_by_offset(op_income_series, 1)

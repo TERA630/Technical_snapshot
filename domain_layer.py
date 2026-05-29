@@ -8,9 +8,25 @@ from typing import Protocol
 import pandas as pd
 
 from data_layer import fetch_dividend_snapshot, fetch_history, fetch_intraday_vwap, fetch_profitability_snapshot, fetch_valuation_snapshot, safe_float
-
-RSI_PERIOD = 14
-ATR_PERIOD = 14
+from stock_constants import (
+    ATR_PERIOD,
+    CANDLE_LABELS,
+    CLOSE_POSITION_LABELS,
+    CLOSE_POSITION_THRESHOLDS,
+    ERROR_MESSAGES,
+    NA_TEXT,
+    PREV_SESSION_THRESHOLDS,
+    RANGE_ATR_LABELS,
+    RANGE_ATR_THRESHOLDS,
+    RANGE_ZONE_LABELS,
+    RANGE_ZONE_THRESHOLDS,
+    RSI_PERIOD,
+    SESSION_LABELS,
+    TREND_LABELS,
+    UNIT_LABELS,
+    WICK_SHAPE_LABELS,
+    WICK_SHAPE_THRESHOLDS,
+)
 
 
 @dataclass(frozen=True)
@@ -57,34 +73,34 @@ def calc_atr(df: pd.DataFrame, period: int = ATR_PERIOD) -> pd.Series:
 
 def grade_range_by_atr(ratio):
     if ratio is None or (isinstance(ratio, float) and (math.isnan(ratio) or math.isinf(ratio))):
-        return "N/A"
-    if ratio < 0.5:
-        return "浅い値幅"
-    if ratio < 1.0:
-        return "通常値幅"
-    if ratio < 1.5:
-        return "大きめ"
-    return "急拡大"
+        return NA_TEXT
+    if ratio < RANGE_ATR_THRESHOLDS["narrow"]:
+        return RANGE_ATR_LABELS["narrow"]
+    if ratio < RANGE_ATR_THRESHOLDS["normal"]:
+        return RANGE_ATR_LABELS["normal"]
+    if ratio < RANGE_ATR_THRESHOLDS["wide"]:
+        return RANGE_ATR_LABELS["wide"]
+    return RANGE_ATR_LABELS["expanded"]
 
 
 def grade_close_position(position):
     if position is None or (isinstance(position, float) and (math.isnan(position) or math.isinf(position))):
-        return "N/A"
-    if position >= 0.60:
-        return "高値圏で終了"
-    if position >= 0.30:
-        return "中段で終了"
-    return "安値圏で終了"
+        return NA_TEXT
+    if position >= CLOSE_POSITION_THRESHOLDS["high"]:
+        return CLOSE_POSITION_LABELS["high"]
+    if position >= CLOSE_POSITION_THRESHOLDS["middle"]:
+        return CLOSE_POSITION_LABELS["middle"]
+    return CLOSE_POSITION_LABELS["low"]
 
 
 def grade_range_zone(position):
     if position is None or (isinstance(position, float) and (math.isnan(position) or math.isinf(position))):
-        return "N/A"
-    if position >= 0.60:
-        return "高値圏"
-    if position >= 0.30:
-        return "中段"
-    return "安値圏"
+        return NA_TEXT
+    if position >= RANGE_ZONE_THRESHOLDS["high"]:
+        return RANGE_ZONE_LABELS["high"]
+    if position >= RANGE_ZONE_THRESHOLDS["middle"]:
+        return RANGE_ZONE_LABELS["middle"]
+    return RANGE_ZONE_LABELS["low"]
 
 
 def calc_close_position(high_price, low_price, close_price):
@@ -98,33 +114,75 @@ def calc_close_position(high_price, low_price, close_price):
 
 def grade_prev_session(prev_range_atr, close_position, prev_vol_ratio):
     if prev_range_atr is None or close_position is None:
-        return "判定不可"
+        return SESSION_LABELS["unavailable"]
     vol_ratio = 0.0 if prev_vol_ratio is None else prev_vol_ratio
-    if prev_range_atr >= 1.30 and close_position <= 0.30 and vol_ratio >= 20:
-        return "崩れ"
-    if prev_range_atr >= 1.50 and close_position <= 0.40:
-        return "崩れ"
-    if 0.50 <= prev_range_atr <= 1.20 and close_position >= 0.45 and vol_ratio <= 20:
-        return "押し"
-    return "中立"
+    if (
+        prev_range_atr >= PREV_SESSION_THRESHOLDS["collapse_range_atr"]
+        and close_position <= PREV_SESSION_THRESHOLDS["collapse_close_position"]
+        and vol_ratio >= PREV_SESSION_THRESHOLDS["collapse_volume_ratio"]
+    ):
+        return SESSION_LABELS["collapse"]
+    if (
+        prev_range_atr >= PREV_SESSION_THRESHOLDS["large_collapse_range_atr"]
+        and close_position <= PREV_SESSION_THRESHOLDS["large_collapse_close_position"]
+    ):
+        return SESSION_LABELS["collapse"]
+    if (
+        PREV_SESSION_THRESHOLDS["pullback_range_atr_min"]
+        <= prev_range_atr
+        <= PREV_SESSION_THRESHOLDS["pullback_range_atr_max"]
+        and close_position >= PREV_SESSION_THRESHOLDS["pullback_close_position"]
+        and vol_ratio <= PREV_SESSION_THRESHOLDS["pullback_volume_ratio"]
+    ):
+        return SESSION_LABELS["pullback"]
+    return SESSION_LABELS["neutral"]
 
 
 def grade_prev_evaluation(prev_candle, prev_wick_shape, prev_range_atr, close_position, prev_vol_ratio):
     if prev_range_atr is None or close_position is None:
-        return "判定不可"
+        return SESSION_LABELS["unavailable"]
     vol_ratio = 0.0 if prev_vol_ratio is None else prev_vol_ratio
-    if (prev_range_atr >= 1.30 and close_position <= 0.30 and vol_ratio >= 20) or (prev_range_atr >= 1.50 and close_position <= 0.40):
-        return "崩れ"
-    if prev_candle == "陽線" and close_position >= 0.60 and prev_range_atr <= 1.20 and prev_wick_shape != "上ヒゲ長め":
-        if vol_ratio >= -30:
-            return "強い上昇"
-    if prev_candle == "陽線" and (close_position < 0.50 or prev_wick_shape == "上ヒゲ長め"):
-        return "弱い上昇"
-    if prev_candle in ("陰線", "十字線") and 0.50 <= prev_range_atr <= 1.20 and close_position >= 0.45 and vol_ratio <= 20:
-        return "押し"
-    if prev_wick_shape == "下ヒゲ長め" and close_position >= 0.45 and prev_range_atr <= 1.30:
-        return "押し"
-    return "中立"
+    if (
+        prev_range_atr >= PREV_SESSION_THRESHOLDS["collapse_range_atr"]
+        and close_position <= PREV_SESSION_THRESHOLDS["collapse_close_position"]
+        and vol_ratio >= PREV_SESSION_THRESHOLDS["collapse_volume_ratio"]
+    ) or (
+        prev_range_atr >= PREV_SESSION_THRESHOLDS["large_collapse_range_atr"]
+        and close_position <= PREV_SESSION_THRESHOLDS["large_collapse_close_position"]
+    ):
+        return SESSION_LABELS["collapse"]
+    if (
+        prev_candle == CANDLE_LABELS["bullish"]
+        and close_position >= PREV_SESSION_THRESHOLDS["strong_rise_close_position"]
+        and prev_range_atr <= PREV_SESSION_THRESHOLDS["strong_rise_range_atr"]
+        and prev_wick_shape != WICK_SHAPE_LABELS["long_upper_wick"]
+    ):
+        if vol_ratio >= PREV_SESSION_THRESHOLDS["strong_rise_volume_ratio"]:
+            return SESSION_LABELS["strong_rise"]
+    if (
+        prev_candle == CANDLE_LABELS["bullish"]
+        and (
+            close_position < PREV_SESSION_THRESHOLDS["weak_rise_close_position"]
+            or prev_wick_shape == WICK_SHAPE_LABELS["long_upper_wick"]
+        )
+    ):
+        return SESSION_LABELS["weak_rise"]
+    if (
+        prev_candle in (CANDLE_LABELS["bearish"], CANDLE_LABELS["doji"])
+        and PREV_SESSION_THRESHOLDS["pullback_range_atr_min"]
+        <= prev_range_atr
+        <= PREV_SESSION_THRESHOLDS["pullback_range_atr_max"]
+        and close_position >= PREV_SESSION_THRESHOLDS["pullback_close_position"]
+        and vol_ratio <= PREV_SESSION_THRESHOLDS["pullback_volume_ratio"]
+    ):
+        return SESSION_LABELS["pullback"]
+    if (
+        prev_wick_shape == WICK_SHAPE_LABELS["long_lower_wick"]
+        and close_position >= PREV_SESSION_THRESHOLDS["pullback_close_position"]
+        and prev_range_atr <= PREV_SESSION_THRESHOLDS["long_lower_wick_range_atr"]
+    ):
+        return SESSION_LABELS["pullback"]
+    return SESSION_LABELS["neutral"]
 
 
 def calc_distance(value, base):
@@ -151,47 +209,53 @@ def calc_rsi(series: pd.Series, period: int = RSI_PERIOD) -> pd.Series:
 
 def grade_candle(open_price, close_price):
     if open_price is None or close_price is None:
-        return "N/A"
+        return NA_TEXT
     if close_price > open_price:
-        return "陽線"
+        return CANDLE_LABELS["bullish"]
     if close_price < open_price:
-        return "陰線"
-    return "十字線"
+        return CANDLE_LABELS["bearish"]
+    return CANDLE_LABELS["doji"]
 
 
 def grade_wick_shape(open_price, high_price, low_price, close_price):
     values = [open_price, high_price, low_price, close_price]
     if any(v is None for v in values):
-        return "N/A"
+        return NA_TEXT
     day_range = high_price - low_price
     if day_range <= 0:
-        return "小動き"
+        return WICK_SHAPE_LABELS["small_move"]
     body = abs(close_price - open_price)
     upper_wick = high_price - max(open_price, close_price)
     lower_wick = min(open_price, close_price) - low_price
     body_ratio = body / day_range
     upper_ratio = upper_wick / day_range
     lower_ratio = lower_wick / day_range
-    if body_ratio >= 0.65:
-        return "実体大きめ"
-    if lower_ratio >= 0.40 and lower_wick >= body * 1.5:
-        return "下ヒゲ長め"
-    if upper_ratio >= 0.40 and upper_wick >= body * 1.5:
-        return "上ヒゲ長め"
-    if body_ratio <= 0.20:
-        return "小動き・十字線気味"
-    return "通常足"
+    if body_ratio >= WICK_SHAPE_THRESHOLDS["large_body_ratio"]:
+        return WICK_SHAPE_LABELS["large_body"]
+    if (
+        lower_ratio >= WICK_SHAPE_THRESHOLDS["long_wick_ratio"]
+        and lower_wick >= body * WICK_SHAPE_THRESHOLDS["long_wick_body_multiple"]
+    ):
+        return WICK_SHAPE_LABELS["long_lower_wick"]
+    if (
+        upper_ratio >= WICK_SHAPE_THRESHOLDS["long_wick_ratio"]
+        and upper_wick >= body * WICK_SHAPE_THRESHOLDS["long_wick_body_multiple"]
+    ):
+        return WICK_SHAPE_LABELS["long_upper_wick"]
+    if body_ratio <= WICK_SHAPE_THRESHOLDS["small_body_ratio"]:
+        return WICK_SHAPE_LABELS["small_doji_like"]
+    return WICK_SHAPE_LABELS["normal"]
 
 
 def grade_trend(latest, ma5, ma25, ma25_prev5):
     if latest is None or ma5 is None or ma25 is None:
-        return "N/A"
+        return NA_TEXT
     ma25_slope_up = ma25_prev5 is not None and ma25 > ma25_prev5
     if latest > ma5 > ma25 and ma25_slope_up:
-        return "上昇トレンド"
+        return TREND_LABELS["up"]
     if latest < ma5 < ma25:
-        return "下落トレンド"
-    return "もみ合い / 戻り局面"
+        return TREND_LABELS["down"]
+    return TREND_LABELS["mixed"]
 
 
 
@@ -212,7 +276,7 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
     repo = repository or YFinanceStockDataRepository()
     hist = repo.fetch_daily_history(stock_input.code, period="4mo")
     if hist.empty or len(hist) < 30:
-        return {"name": stock_input.name, "code": stock_input.code, "error": "価格データ不足"}
+        return {"name": stock_input.name, "code": stock_input.code, "error": ERROR_MESSAGES["insufficient_price_data"]}
 
     hist = hist[["Open", "High", "Low", "Close", "Volume"]].dropna().copy()
     hist["MA5"] = hist["Close"].rolling(5).mean()
@@ -235,7 +299,7 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
     valuation = repo.fetch_valuation_snapshot(stock_input.code)
     profitability = repo.fetch_profitability_snapshot(stock_input.code)
     dividend = repo.fetch_dividend_snapshot(stock_input.code)
-    latest_bar_time = "終値"
+    latest_bar_time = UNIT_LABELS["closing_price"]
     open_price = safe_float(last["Open"])
     high_price = safe_float(last["High"])
     low_price = safe_float(last["Low"])
