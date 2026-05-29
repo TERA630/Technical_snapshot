@@ -157,8 +157,12 @@ class DomainAndDataTests(unittest.TestCase):
         rendered = render_stock_block(snapshot, include_market=False, market_block="")
 
         self.assertIn("PER  N/A(実績)", rendered)
-        self.assertIn("■当日テクニカル", rendered)
-        self.assertIn("日足参考値", rendered)
+        self.assertIn("株価：164.0円（前日比+1円：+0.6%）", rendered)
+        self.assertIn("■移動平均・出来高", rendered)
+        self.assertNotIn("■当日テクニカル", rendered)
+        self.assertNotIn("VWAP：", rendered)
+        self.assertNotIn("RSI：", rendered)
+        self.assertNotIn("距離 ", rendered)
 
     def test_intraday_snapshot_marks_vwap_as_intraday_source(self):
         intraday = {
@@ -176,7 +180,8 @@ class DomainAndDataTests(unittest.TestCase):
         self.assertEqual(snapshot["latest_price_source"], "intraday_5m")
         self.assertEqual(snapshot["vwap_source"], "本日5分足")
         self.assertTrue(snapshot["vwap_timestamp"].endswith("10:05"))
-        self.assertIn("本日5分足", rendered)
+        self.assertIn("株価：150.0円（前日比-13円：-8.0%）", rendered)
+        self.assertIn("VWAP　　+1.35% (+2円)", rendered)
 
     def test_flat_snapshot_can_be_converted_to_structured_snapshot(self):
         snapshot = get_stock_snapshot(StockInput("テスト", "0000"), FakeRepository())

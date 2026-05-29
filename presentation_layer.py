@@ -44,6 +44,12 @@ def fmt_pct(value):
     return f"{value:+.2f}%"
 
 
+def fmt_pct_1(value):
+    if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
+        return NA_TEXT
+    return f"{value:+.1f}%"
+
+
 def fmt_pct_plain(value):
     if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
         return NA_TEXT
@@ -54,6 +60,26 @@ def fmt_price_diff(value):
     if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
         return NA_TEXT
     return f"{value:+,.2f}"
+
+
+def fmt_price_diff_current(value):
+    if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
+        return NA_TEXT
+    if float(value).is_integer() or abs(value) >= 1000:
+        return f"{value:+,.0f}"
+    return f"{value:+.1f}"
+
+
+def fmt_signed_1(value):
+    if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
+        return NA_TEXT
+    return f"{value:+.1f}"
+
+
+def fmt_number_1(value):
+    if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
+        return NA_TEXT
+    return f"{value:.1f}"
 
 
 def fmt_ohlc(open_price, high_price, low_price, close_price):
@@ -154,6 +180,30 @@ def render_market_block(market):
     return "\n".join(lines)
 
 
+def render_summary_block(stock) -> str:
+    latest = stock.get("latest")
+    vwap = stock.get("vwap")
+    vwap_diff_price = None if latest is None or vwap is None else latest - vwap
+    if stock.get("vwap_diff") is None or vwap_diff_price is None:
+        vwap_line = f"{DISPLAY_LABELS['vwap']}　　{NA_TEXT}"
+    else:
+        vwap_line = f"{DISPLAY_LABELS['vwap']}　　{fmt_pct(stock.get('vwap_diff'))} ({fmt_price_diff_current(vwap_diff_price)}{UNIT_LABELS['yen']})"
+    range_position = stock.get("recent60_range_position")
+    range_position_text = NA_TEXT if range_position is None else fmt_pct_plain(range_position * 100)
+    close_position = stock.get("day_close_position")
+    close_position_text = NA_TEXT if close_position is None else fmt_pct_plain(close_position * 100)
+
+    return "\n".join([
+        f"株価：{fmt_price_current(latest)}{UNIT_LABELS['yen']}（{DISPLAY_LABELS['prev_day_change']}{fmt_price_diff_current(stock.get('day_change_price'))}{UNIT_LABELS['yen']}：{fmt_pct_1(stock.get('day_change_pct'))}） ({stock.get('latest_price_timestamp', NA_TEXT)} 時点)   {DISPLAY_LABELS['close_position']}({close_position_text}:{stock.get('day_close_position_label', NA_TEXT)})",
+        f"トレンド　{stock.get('summary_trend_symbol', NA_TEXT)} {stock.get('summary_trend_label', NA_TEXT)}",
+        vwap_line,
+        f"位置　　　{DISPLAY_LABELS['ma25']} {fmt_pct(stock.get('dev25'))}（{DISPLAY_LABELS['atr_ratio']}：{fmt_signed_1(stock.get('ma25_distance_atr'))}）",
+        f"{DISPLAY_LABELS['rsi']}　　　{fmt_number_1(stock.get('rsi'))}",
+        "",
+        f"60日レンジ位置 {range_position_text}（{stock.get('recent60_range_zone', NA_TEXT)}）",
+    ])
+
+
 def render_stock_block(stock, include_market: bool, market_block: str) -> str:
     if stock.get("error"):
         return f"【{DISPLAY_LABELS['stock']}】{stock['name']} ({stock['code']})\n\n{DISPLAY_LABELS['fetch_failed']}：{stock['error']}"
@@ -169,6 +219,8 @@ def render_stock_block(stock, include_market: bool, market_block: str) -> str:
     lines = [
         f"【{DISPLAY_LABELS['stock']}】{stock['name']} ({stock['code']})",
         "",
+        render_summary_block(stock),
+        "",
         SECTION_TITLES["today_range"],
         f"{DISPLAY_LABELS['current_price']}({stock['date'].replace('-', '/')}　{stock.get('latest_bar_time', NA_TEXT)})：{fmt_price_current(stock['latest'])}({DISPLAY_LABELS['prev_day_change']}{fmt_pct_jp(stock['day_change_pct'])})",
         "",
@@ -180,11 +232,9 @@ def render_stock_block(stock, include_market: bool, market_block: str) -> str:
         f"EPS  {fmt_eps(stock.get('eps_actual'))}({DISPLAY_LABELS['actual']}) {fmt_eps(stock.get('eps_fy0'))}({DISPLAY_LABELS['fy0_forecast']}) {fmt_eps(stock.get('eps_fy1'))}({DISPLAY_LABELS['fy1_forecast']})",
         "",
         SECTION_TITLES["technical"],
-        f"{DISPLAY_LABELS['vwap']}：{fmt_vwap_position(stock['latest'], stock['vwap'], stock.get('vwap_source'))}",
         f"{DISPLAY_LABELS['ma5']}：{fmt_price(stock['ma5'])}（{DISPLAY_LABELS['deviation']} {fmt_pct(stock['dev5'])}）",
-        f"{DISPLAY_LABELS['ma25']}：{fmt_price(stock['ma25'])}（{DISPLAY_LABELS['deviation']} {fmt_pct(stock['dev25'])} / {DISPLAY_LABELS['distance']} {fmt_price_diff(stock['ma25_distance'])} / {DISPLAY_LABELS['atr_ratio']} {fmt_multiple(stock['ma25_distance_atr'])}）",
+        f"{DISPLAY_LABELS['ma25']}：{fmt_price(stock['ma25'])}（{DISPLAY_LABELS['deviation']} {fmt_pct(stock['dev25'])} / {DISPLAY_LABELS['atr_ratio']} {fmt_multiple(stock['ma25_distance_atr'])}）",
         f"{DISPLAY_LABELS['atr14']}：{fmt_price(stock['atr14'])}",
-        f"{DISPLAY_LABELS['rsi']}：{fmt_price(stock['rsi'])}",
         f"{DISPLAY_LABELS['volume']}：{fmt_volume(stock['volume'])}（{DISPLAY_LABELS['vol_avg20_ratio']} {fmt_pct(stock['vol_ratio'])}）",
         "",
         SECTION_TITLES["prev_evaluation"],

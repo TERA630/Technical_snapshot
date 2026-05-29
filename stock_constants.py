@@ -19,7 +19,7 @@ MARKET_DISPLAY_ORDER = ("WTI", "銅", "NASDAQ")
 SECTION_TITLES = {
     "market": "■市況",
     "today_range": "■当日位置・レンジ",
-    "technical": "■当日テクニカル",
+    "technical": "■移動平均・出来高",
     "prev_evaluation": "■前日評価",
     "fundamentals": "■ファンダメンタル",
     "breakline": "■節目・ブレイクライン",
