@@ -1,0 +1,170 @@
+from __future__ import annotations
+
+import math
+from pathlib import Path
+import sys
+import unittest
+from unittest.mock import patch
+
+import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from data_layer import fetch_intraday_vwap
+from domain_layer import (
+    StockInput,
+    calc_atr,
+    calc_close_position,
+    calc_rsi,
+    get_stock_snapshot,
+    grade_prev_session,
+    grade_range_by_atr,
+    grade_trend,
+)
+from presentation_layer import render_stock_block
+from stock_types import to_structured_snapshot
+
+
+def build_history(rows: int = 65) -> pd.DataFrame:
+    index = pd.date_range("2026-01-01", periods=rows, freq="B")
+    data = []
+    for i in range(rows):
+        close = 100 + i
+        data.append({
+            "Open": close - 1,
+            "High": close + 2,
+            "Low": close - 2,
+            "Close": close,
+            "Volume": 1000 + i * 10,
+        })
+    return pd.DataFrame(data, index=index)
+
+
+class FakeRepository:
+    def __init__(self, history=None, intraday=None, valuation=None, profitability=None, dividend=None):
+        self.history = build_history() if history is None else history
+        self.intraday = intraday
+        self.valuation = valuation or {
+            "eps_actual": 10,
+            "eps_fy0": None,
+            "eps_fy1": 12,
+            "per_actual": 15,
+            "per_forward": 14,
+        }
+        self.profitability = profitability or {
+            "roe_actual": 8,
+            "roe_fy0": None,
+            "roe_fy1": None,
+            "op_margin_actual": 7,
+            "op_growth_actual": 5,
+            "op_income_actual": 100,
+            "op_income_prev": 95,
+            "op_income_fy0": None,
+            "op_income_fy1": None,
+            "revenue_fy0": 1000,
+            "revenue_fy1": 1100,
+            "op_margin_fy0": None,
+            "op_margin_fy1": None,
+        }
+        self.dividend = {
+            "annual_dividend": 4,
+            "latest_dividend": 1,
+            "latest_dividend_date": "2026-01-01",
+        } if dividend is None else dividend
+
+    def fetch_daily_history(self, code: str, period: str = "4mo") -> pd.DataFrame:
+        return self.history
+
+    def fetch_intraday_snapshot(self, code: str, interval: str = "5m") -> dict | None:
+        return self.intraday
+
+    def fetch_valuation_snapshot(self, code: str) -> dict:
+        return self.valuation
+
+    def fetch_profitability_snapshot(self, code: str) -> dict:
+        return self.profitability
+
+    def fetch_dividend_snapshot(self, code: str) -> dict:
+        return self.dividend
+
+
+class FailingValuationRepository(FakeRepository):
+    def fetch_valuation_snapshot(self, code: str) -> dict:
+        raise RuntimeError("valuation unavailable")
+
+
+class DomainAndDataTests(unittest.TestCase):
+    def test_intraday_vwap_uses_volume_weighted_typical_price(self):
+        df = pd.DataFrame(
+            [
+                {"Open": 100, "High": 110, "Low": 90, "Close": 105, "Volume": 10},
+                {"Open": 106, "High": 120, "Low": 100, "Close": 115, "Volume": 20},
+            ],
+            index=pd.to_datetime(["2026-05-29 09:00", "2026-05-29 09:05"]),
+        )
+
+        with patch("data_layer.yf.download", return_value=df):
+            snapshot, _ = fetch_intraday_vwap("7203")
+
+        expected_vwap = (((110 + 90 + 105) / 3) * 10 + ((120 + 100 + 115) / 3) * 20) / 30
+        self.assertAlmostEqual(snapshot["vwap"], expected_vwap)
+        self.assertEqual(snapshot["latest_price"], 115)
+        self.assertEqual(snapshot["volume"], 30)
+
+    def test_atr_and_rsi_are_calculated_from_fixed_history(self):
+        hist = build_history()
+        atr = calc_atr(hist)
+        close = pd.Series([100, 102, 101, 103, 102, 104, 103, 105, 104, 106, 105, 107, 106, 108, 107, 109])
+        rsi = calc_rsi(close)
+
+        self.assertFalse(math.isnan(atr.iloc[-1]))
+        self.assertGreater(atr.iloc[-1], 0)
+        self.assertFalse(pd.isna(rsi.iloc[-1]))
+        self.assertGreaterEqual(rsi.iloc[-1], 0)
+        self.assertLessEqual(rsi.iloc[-1], 100)
+
+    def test_labels_and_close_position_thresholds(self):
+        self.assertEqual(calc_close_position(110, 90, 102), 0.6)
+        self.assertEqual(grade_range_by_atr(0.4), "浅い値幅")
+        self.assertEqual(grade_range_by_atr(1.2), "大きめ")
+        self.assertEqual(grade_prev_session(1.0, 0.5, 0), "押し")
+        self.assertEqual(grade_trend(120, 110, 100, 95), "上昇トレンド")
+
+    def test_stock_snapshot_uses_fallbacks_and_records_missing_intraday(self):
+        snapshot = get_stock_snapshot(StockInput("テスト", "0000"), FakeRepository())
+
+        self.assertIsNone(snapshot["error"])
+        self.assertEqual(snapshot["latest_bar_time"], "終値")
+        self.assertEqual(snapshot["per_fy0"], 14)
+        self.assertGreater(snapshot["dividend_yield"], 0)
+        self.assertEqual(snapshot["diagnostics"][0]["field"], "intraday")
+        self.assertIn("データ欠損", snapshot["diagnostics"][0]["category"])
+
+    def test_optional_fetch_failure_becomes_diagnostic_not_crash(self):
+        with self.assertLogs("domain_layer", level="WARNING") as captured:
+            snapshot = get_stock_snapshot(StockInput("テスト", "0000"), FailingValuationRepository())
+
+        self.assertIsNone(snapshot["error"])
+        self.assertIsNone(snapshot["per_actual"])
+        self.assertTrue(any(item["field"] == "valuation" for item in snapshot["diagnostics"]))
+        self.assertTrue(any("valuation" in message for message in captured.output))
+
+    def test_render_uses_na_for_missing_values(self):
+        snapshot = get_stock_snapshot(StockInput("テスト", "0000"), FailingValuationRepository())
+        rendered = render_stock_block(snapshot, include_market=False, market_block="")
+
+        self.assertIn("PER  N/A(実績)", rendered)
+        self.assertIn("■当日テクニカル", rendered)
+
+    def test_flat_snapshot_can_be_converted_to_structured_snapshot(self):
+        snapshot = get_stock_snapshot(StockInput("テスト", "0000"), FakeRepository())
+        structured = to_structured_snapshot(snapshot)
+
+        self.assertEqual(structured["identity"]["code"], "0000")
+        self.assertIn("latest", structured["price"])
+        self.assertIn("per_fy0", structured["valuation"])
+        self.assertIn("dividend_yield", structured["dividend"])
+
+
+if __name__ == "__main__":
+    unittest.main()

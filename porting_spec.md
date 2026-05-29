@@ -342,7 +342,7 @@ ATR14 = TrueRange.ewm(alpha=1/14, adjust=False, min_periods=14).mean()
 
 | 分類 | key |
 |---|---|
-| 銘柄 | `name`, `code`, `date`, `acquired_at`, `error` |
+| 銘柄 | `name`, `code`, `date`, `acquired_at`, `error`, `diagnostics` |
 | 当日価格 | `latest_bar_time`, `open`, `high`, `low`, `latest`, `day_change_pct`, `volume` |
 | VWAP | `vwap`, `vwap_diff` |
 | テクニカル | `ma5`, `dev5`, `ma25`, `dev25`, `rsi`, `atr14`, `trend` |
@@ -495,6 +495,8 @@ class StockDataRepository:
 
 これにより、将来yfinanceから別APIへ切り替える場合もドメイン層と表示層を維持できる。
 
+Python移植時は `stock_types.py` の `StructuredStockSnapshot` と `to_structured_snapshot()` を使い、現行のflat snapshotから保守性重視の階層構造へ変換できる。
+
 ## 9. 移植前にしておいたほうがいいこと
 
 ### 9.1 仕様固定用のサンプル出力を作る
@@ -526,19 +528,30 @@ class StockDataRepository:
 
 ### 9.2 データ取得と算出のテストを分ける
 
-yfinanceは外部要因で値・列・欠損が変わるため、ドメイン層テストでは固定DataFrameを使う。
+対応済み。
+
+`tests/test_domain_and_data.py` を追加し、外部APIに依存しない固定データテストを用意した。
+
+yfinanceは外部要因で値・列・欠損が変わるため、ドメイン層テストでは固定DataFrameを使う。日中VWAPだけは `yfinance.download` をモックし、取得結果の形を固定して検証する。
 
 最低限テストしたい項目:
 
-- 日中VWAP
-- ATR14
-- RSI14
-- 終端位置
-- 値幅ATR比ラベル
-- 前日押し判定
-- トレンド判定
-- PER/EPS fallback
-- 欠損時の `N/A`
+- 日中VWAP: 対応済み
+- ATR14: 対応済み
+- RSI14: 対応済み
+- 終端位置: 対応済み
+- 値幅ATR比ラベル: 対応済み
+- 前日押し判定: 対応済み
+- トレンド判定: 対応済み
+- PER/EPS fallback: 対応済み
+- 欠損時の `N/A`: 対応済み
+- 任意データ取得失敗時の診断情報: 対応済み
+
+実行コマンド:
+
+```powershell
+python -m unittest discover -s tests -v
+```
 
 ### 9.3 表示文言を定数化する
 
@@ -579,9 +592,11 @@ Get-Content -Raw -Encoding UTF8 porting_spec.md
 
 ### 9.5 取得失敗の扱いを明確化する
 
-現行は多くの取得失敗を `None` として握り、表示で `N/A` にする。
+対応済み。
 
-移植時は、内部的には以下を分けて持つことを推奨する。
+現行は多くの取得失敗を `None` として握り、表示で `N/A` にする。これに加えて、`get_stock_snapshot()` の返却辞書に `diagnostics` を追加し、内部的な原因を残す。
+
+診断カテゴリは `stock_constants.py` の `DIAGNOSTIC_CATEGORIES` に集約した。
 
 - 外部API失敗
 - データ欠損
@@ -589,7 +604,17 @@ Get-Content -Raw -Encoding UTF8 porting_spec.md
 - ゼロ除算
 - 取得対象外
 
-表示は `N/A` のままでよいが、ログや診断情報を持つと原因追跡しやすい。
+`diagnostics` の形式:
+
+```python
+{
+    "category": "外部API失敗",
+    "field": "valuation",
+    "message": "valuation unavailable",
+}
+```
+
+表示は従来どおり `N/A` のままとする。日足価格が不足する場合は従来どおり `error = "価格データ不足"` とし、日中足・PER/EPS・収益性・配当など任意データの取得失敗は全体を落とさず `diagnostics` に記録する。
 
 ### 9.6 yfinance依存リスクを隔離する
 
@@ -606,16 +631,55 @@ yfinanceは非公式APIに近く、列名・取得可否・推定値の有無が
 
 ### 9.7 ドメイン辞書の型定義を作る
 
-現行は辞書keyの契約が暗黙的。
+対応済み。
 
-移植時は以下のいずれかを作ると安全。
+移植先はPythonとする。`stock_types.py` に `TypedDict` ベースの型定義を追加した。
 
-- `TypedDict`
-- dataclass
-- Pydantic model
-- TypeScript interface
+採用方針:
 
-特に表示層が参照するkeyは必須/任意を明示する。
+- 型定義: `TypedDict`
+- diagnostics: 表示には出さず、Python loggingへwarning出力する
+- snapshot key: 現行flat keyは維持しつつ、移植用には保守性重視の階層構造を使う
+
+追加した主要型:
+
+- `Diagnostic`
+- `StockIdentity`
+- `PriceSnapshot`
+- `VwapSnapshot`
+- `TechnicalSnapshot`
+- `RangeSnapshot`
+- `PreviousSessionSnapshot`
+- `BreaklineSnapshot`
+- `ValuationSnapshot`
+- `ProfitabilitySnapshot`
+- `DividendSnapshot`
+- `StructuredStockSnapshot`
+
+変換関数:
+
+```python
+from stock_types import to_structured_snapshot
+
+flat = get_stock_snapshot(StockInput(name, code))
+structured = to_structured_snapshot(flat)
+```
+
+階層構造:
+
+| key | 内容 |
+|---|---|
+| `identity` | 銘柄名、コード、取得日、エラー |
+| `price` | 当日価格、現在値、出来高 |
+| `vwap` | VWAP、VWAP差分率 |
+| `technical` | MA、RSI、ATR、トレンド |
+| `range` | 当日レンジ、終端位置、25日線距離 |
+| `previous_session` | 前日価格、ローソク、押し判定、総合評価 |
+| `breakline` | 直近高値、60日レンジ |
+| `valuation` | PER/EPS |
+| `profitability` | ROE、営業利益率、営業成長率 |
+| `dividend` | 配当、配当利回り |
+| `diagnostics` | 内部診断情報 |
 
 ## 10. 移植時の注意点
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+import logging
 import math
 from typing import Protocol
 
@@ -13,6 +14,7 @@ from stock_constants import (
     CANDLE_LABELS,
     CLOSE_POSITION_LABELS,
     CLOSE_POSITION_THRESHOLDS,
+    DIAGNOSTIC_CATEGORIES,
     ERROR_MESSAGES,
     NA_TEXT,
     PREV_SESSION_THRESHOLDS,
@@ -27,6 +29,8 @@ from stock_constants import (
     WICK_SHAPE_LABELS,
     WICK_SHAPE_THRESHOLDS,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -59,6 +63,33 @@ class YFinanceStockDataRepository:
 
     def fetch_dividend_snapshot(self, code: str) -> dict:
         return fetch_dividend_snapshot(code)
+
+
+def add_diagnostic(diagnostics: list[dict], category_key: str, field: str, message: str):
+    diagnostic = {
+        "category": DIAGNOSTIC_CATEGORIES[category_key],
+        "field": field,
+        "message": message,
+    }
+    diagnostics.append(diagnostic)
+    logger.warning(
+        "stock snapshot diagnostic: category=%s field=%s message=%s",
+        diagnostic["category"],
+        diagnostic["field"],
+        diagnostic["message"],
+    )
+
+
+def fetch_optional_snapshot(diagnostics: list[dict], field: str, fetch_func, default_value):
+    try:
+        value = fetch_func()
+    except Exception as exc:
+        add_diagnostic(diagnostics, "external_api_failure", field, str(exc))
+        return default_value
+    if value is None:
+        add_diagnostic(diagnostics, "data_missing", field, "取得結果がありません")
+        return default_value
+    return value
 
 
 def calc_atr(df: pd.DataFrame, period: int = ATR_PERIOD) -> pd.Series:
@@ -274,11 +305,46 @@ def calc_dividend_yield(latest_price, annual_dividend):
 
 def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository | None = None):
     repo = repository or YFinanceStockDataRepository()
-    hist = repo.fetch_daily_history(stock_input.code, period="4mo")
+    diagnostics: list[dict] = []
+    try:
+        hist = repo.fetch_daily_history(stock_input.code, period="4mo")
+    except Exception as exc:
+        add_diagnostic(diagnostics, "external_api_failure", "daily_history", str(exc))
+        return {
+            "name": stock_input.name,
+            "code": stock_input.code,
+            "error": ERROR_MESSAGES["insufficient_price_data"],
+            "diagnostics": diagnostics,
+        }
     if hist.empty or len(hist) < 30:
-        return {"name": stock_input.name, "code": stock_input.code, "error": ERROR_MESSAGES["insufficient_price_data"]}
+        add_diagnostic(diagnostics, "data_missing", "daily_history", "日足が30件未満です")
+        return {
+            "name": stock_input.name,
+            "code": stock_input.code,
+            "error": ERROR_MESSAGES["insufficient_price_data"],
+            "diagnostics": diagnostics,
+        }
+
+    required_cols = {"Open", "High", "Low", "Close", "Volume"}
+    missing_cols = sorted(required_cols - set(hist.columns))
+    if missing_cols:
+        add_diagnostic(diagnostics, "column_missing", "daily_history", f"不足列: {', '.join(missing_cols)}")
+        return {
+            "name": stock_input.name,
+            "code": stock_input.code,
+            "error": ERROR_MESSAGES["insufficient_price_data"],
+            "diagnostics": diagnostics,
+        }
 
     hist = hist[["Open", "High", "Low", "Close", "Volume"]].dropna().copy()
+    if len(hist) < 30:
+        add_diagnostic(diagnostics, "data_missing", "daily_history", "欠損除去後の日足が30件未満です")
+        return {
+            "name": stock_input.name,
+            "code": stock_input.code,
+            "error": ERROR_MESSAGES["insufficient_price_data"],
+            "diagnostics": diagnostics,
+        }
     hist["MA5"] = hist["Close"].rolling(5).mean()
     hist["MA25"] = hist["Close"].rolling(25).mean()
     hist["RSI14"] = calc_rsi(hist["Close"], RSI_PERIOD)
@@ -295,10 +361,30 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
     vol = safe_float(last["Volume"])
     atr14 = safe_float(last["ATR14"])
 
-    intraday = repo.fetch_intraday_snapshot(stock_input.code, interval="5m")
-    valuation = repo.fetch_valuation_snapshot(stock_input.code)
-    profitability = repo.fetch_profitability_snapshot(stock_input.code)
-    dividend = repo.fetch_dividend_snapshot(stock_input.code)
+    intraday = fetch_optional_snapshot(
+        diagnostics,
+        "intraday",
+        lambda: repo.fetch_intraday_snapshot(stock_input.code, interval="5m"),
+        None,
+    )
+    valuation = fetch_optional_snapshot(
+        diagnostics,
+        "valuation",
+        lambda: repo.fetch_valuation_snapshot(stock_input.code),
+        {},
+    )
+    profitability = fetch_optional_snapshot(
+        diagnostics,
+        "profitability",
+        lambda: repo.fetch_profitability_snapshot(stock_input.code),
+        {},
+    )
+    dividend = fetch_optional_snapshot(
+        diagnostics,
+        "dividend",
+        lambda: repo.fetch_dividend_snapshot(stock_input.code),
+        {},
+    )
     latest_bar_time = UNIT_LABELS["closing_price"]
     open_price = safe_float(last["Open"])
     high_price = safe_float(last["High"])
@@ -430,4 +516,5 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         "latest_dividend_date": dividend.get("latest_dividend_date"),
         "dividend_yield": calc_dividend_yield(latest, dividend.get("annual_dividend")),
         "error": None,
+        "diagnostics": diagnostics,
     }

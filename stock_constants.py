@@ -70,6 +70,14 @@ ERROR_MESSAGES = {
     "watchlist_parse_failed": "監視銘柄ファイルから '銘柄名 (4桁コード)' を抽出できませんでした。",
 }
 
+DIAGNOSTIC_CATEGORIES = {
+    "external_api_failure": "外部API失敗",
+    "data_missing": "データ欠損",
+    "column_missing": "列名変更/列不足",
+    "division_by_zero": "ゼロ除算",
+    "out_of_scope": "取得対象外",
+}
+
 UNIT_LABELS = {
     "shares": "株",
     "multiple": "倍",
