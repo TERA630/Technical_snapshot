@@ -411,29 +411,29 @@ flatからstructuredへの変換は `stock_types.to_structured_snapshot()`。
 表示テンプレート:
 
 ```text
-【銘柄】{name} ({code})
-株価：{latest}円（前日比{day_change_price}円：{day_change_pct}） ({latest_price_timestamp} 時点)   終端位置({day_close_position}:{day_close_position_label})
-トレンド　{trend_symbol} {trend_short}
-VWAP　　{vwap_diff_pct} ({vwap_diff_price}円)
-位置　　　25日線 {dev25}（ATR比：{ma25_distance_atr}）
-RSI　　　{rsi}
-
-60日レンジ位置 {recent60_range_position}（{recent60_range_zone}）
+【銘柄】　{name}
+{latest_price_timestamp}
+株価：{latest}円　(前日比{day_change_price}円：{day_change_pct})　({day_close_position_zone}{day_close_position}で終了)
+トレンド：　{summary_trend_symbol}　{summary_trend_label}
+Vwap　：　{vwap_diff_price}円　({vwap_diff_pct})
+位置　：　25日線　{dev25}　(ATR比：{ma25_distance_atr})　　60日線レンジ位置　{recent60_range_position}({recent60_range_zone})
+RSI　：　{rsi}
 ```
 
 項目仕様:
 
 | 表示項目 | snapshot key / 算出 | 表示仕様 |
 |---|---|---|
-| 銘柄 | `name`, `code` | 既存見出し `【銘柄】{name} ({code})` を使う |
-| 株価 | `latest`, `latest_price_timestamp` | `株価：{latest}円`。価格は `fmt_price_current()` + `円`。時点は `latest_price_timestamp` をそのまま表示 |
+| 銘柄 | `name` | `【銘柄】　{name}`。先頭サマリ見出しではコードを表示しない |
+| 時点 | `latest_price_timestamp` | 銘柄行の次行に表示。時刻の `:` は `：` に置換する |
+| 株価 | `latest` | `株価：{latest}円`。価格は `fmt_price_current()` + `円` |
 | 前日比 | `day_change_price`, `day_change_pct` | `（前日比{day_change_price}円：{day_change_pct}）`。価格差は符号付き円、率は符号付き・小数1桁の `%` |
-| 終端位置 | `day_close_position`, `day_close_position_label` | 比率は `day_close_position * 100` を小数1桁の `%`。ラベルは既存ラベルをそのまま使う |
+| 終端位置 | `day_close_position`, `day_close_position_label` | `({zone}{position}%で終了)`。zoneは既存ラベルから `高値圏` / `中段` / `安値圏` に短縮する |
 | トレンド | `summary_trend_symbol`, `summary_trend_label` | 記号 + 短縮ラベルで表示 |
-| VWAP | `vwap_diff`, `latest - vwap` | 左にVWAP乖離率、括弧内に価格差。価格差は符号付き、`円`付き |
-| 位置 | `dev25`, `ma25_distance_atr` | `25日線 {dev25}（ATR比：{ma25_distance_atr}）`。ATR比は小数1桁を基本とする |
+| Vwap | `vwap_diff`, `latest - vwap` | `Vwap　：　{価格差}円　({乖離率})`。価格差を先に表示する |
+| 位置 | `dev25`, `ma25_distance_atr`, `recent60_range_position`, `recent60_range_zone` | 25日線位置と60日線レンジ位置を1行にまとめる |
 | RSI | `rsi` | 小数1桁 |
-| 60日レンジ位置 | `recent60_range_position`, `recent60_range_zone` | `recent60_range_position * 100` を小数1桁の `%`。ゾーンラベルを括弧で併記 |
+| 60日線レンジ位置 | `recent60_range_position`, `recent60_range_zone` | `recent60_range_position * 100` を小数1桁の `%`。ゾーンラベルを括弧で併記 |
 
 トレンド短縮ラベル:
 
@@ -441,7 +441,7 @@ RSI　　　{rsi}
 |---|---|
 | 上昇トレンド | ↑ 上昇 |
 | 下落トレンド | ↓ 下落 |
-| もみ合い / 戻り局面 | → もみ合い |
+| もみ合い / 戻り局面 | → もみあい |
 
 終端位置ラベルは既存ラベルを維持する。
 
@@ -454,24 +454,23 @@ RSI　　　{rsi}
 欠損時:
 
 - 数値が欠損、NaN、infの場合は該当箇所を `N/A` とする。
-- VWAPが欠損する場合は `VWAP　　N/A` とし、価格差も表示しない。
+- Vwapが欠損する場合は `Vwap　：　N/A` とし、価格差も表示しない。
 - 25日線またはATRが欠損する場合は、取得できる値だけ表示し、不足部分を `N/A` とする。
 - 60日レンジの高値・安値が同値、または算出不能の場合は `60日レンジ位置 N/A` とする。
 
 例:
 
 ```text
-【ダイセキ (9793)】
-株価：3904円（前日比+120円：+x.x%） (20xx/xx/xx xx:xx 時点)   終端位置(0.0%:安値圏で終了)
-トレンド　↓ 下落
-VWAP　　-1.13% (-xxx円)
-位置　　　25日線 -4.24%（ATR比：x.x）
-RSI　　　xx.x
-
-60日レンジ位置 xx.x%（安値圏）
+【銘柄】　コムシス
+2026-05-29　15：20
+株価：5452円　(前日比+60円：+1.1%)　(高値圏84.4%で終了)
+トレンド：　→　もみあい
+Vwap　：　+42円　(+0.78%)
+位置　：　25日線　-1.68%　(ATR比：-0.5)　　60日線レンジ位置　43.8%(中段)
+RSI　：　49.3
 ```
 
-VWAPの括弧内の価格差は、既存の `latest - vwap` と同じ符号にする。つまり現在値がVWAPより下ならマイナス。
+Vwapの価格差は、既存の `latest - vwap` と同じ符号にする。つまり現在値がVWAPより下ならマイナス。
 
 ### 10.3 移動平均・出来高ブロック
 
@@ -581,5 +580,5 @@ python -m unittest discover -s tests -v
 - 今期末予想営業利益率は現行仕様の対象外。取得できない値を `N/A` として表示し続けるより、表示・ドメインから削除する。
 - `vwap_source` は日中足由来なら `本日5分足`、日足代替なら `日足参考値`。
 - `vwap_timestamp` は日中足由来なら `{日足日付} {HH:MM}`、日足代替なら `{日足日付} 終値`。
-- `vwap_diff` はflat snapshotにあるが、表示では `fmt_vwap_position(latest, vwap, vwap_source)` が再計算している。
+- 先頭サマリのVwap表示は、`vwap_diff` と `latest - vwap` を使う。詳細ブロック側にはVWAP行を表示しない。
 - structured snapshotは移植用の推奨形式。現行表示層はflat snapshotを使う。

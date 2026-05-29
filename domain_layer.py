@@ -314,7 +314,7 @@ def summarize_trend(trend: str | None) -> tuple[str, str]:
     if trend == TREND_LABELS["down"]:
         return "↓", "下落"
     if trend == TREND_LABELS["mixed"]:
-        return "→", "もみ合い"
+        return "→", "もみあい"
     return "→", NA_TEXT
 
 

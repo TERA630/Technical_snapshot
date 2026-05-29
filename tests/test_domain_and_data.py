@@ -25,7 +25,7 @@ from domain_layer import (
     grade_trend,
     summarize_trend,
 )
-from presentation_layer import render_stock_block
+from presentation_layer import render_stock_block, render_summary_block
 from stock_logging import setup_stock_logging
 from stock_types import to_structured_snapshot
 
@@ -87,6 +87,14 @@ class FailingValuationRepository(FakeRepository):
         raise RuntimeError("valuation unavailable")
 
 
+def extract_section(rendered: str, title: str) -> str:
+    start = rendered.index(title)
+    next_start = rendered.find("\n\n■", start + len(title))
+    if next_start == -1:
+        return rendered[start:]
+    return rendered[start:next_start]
+
+
 class DomainAndDataTests(unittest.TestCase):
     def test_intraday_vwap_uses_volume_weighted_typical_price(self):
         df = pd.DataFrame(
@@ -125,7 +133,7 @@ class DomainAndDataTests(unittest.TestCase):
         self.assertEqual(grade_trend(120, 110, 100, 95), "上昇トレンド")
         self.assertEqual(summarize_trend("上昇トレンド"), ("↑", "上昇"))
         self.assertEqual(summarize_trend("下落トレンド"), ("↓", "下落"))
-        self.assertEqual(summarize_trend("もみ合い / 戻り局面"), ("→", "もみ合い"))
+        self.assertEqual(summarize_trend("もみ合い / 戻り局面"), ("→", "もみあい"))
 
     def test_stock_snapshot_uses_fallbacks_and_records_missing_intraday(self):
         snapshot = get_stock_snapshot(StockInput("テスト", "0000"), FakeRepository())
@@ -155,14 +163,20 @@ class DomainAndDataTests(unittest.TestCase):
     def test_render_uses_na_for_missing_values(self):
         snapshot = get_stock_snapshot(StockInput("テスト", "0000"), FailingValuationRepository())
         rendered = render_stock_block(snapshot, include_market=False, market_block="")
+        moving_average_section = extract_section(rendered, "■移動平均・出来高")
 
         self.assertIn("PER  N/A(実績)", rendered)
-        self.assertIn("株価：164.0円（前日比+1円：+0.6%）", rendered)
+        self.assertIn("【銘柄】　テスト", rendered)
+        self.assertIn("2026-04-01　終値", rendered)
+        self.assertIn("株価：164.0円　(前日比+1円：+0.6%)　(中段50.0%で終了)", rendered)
         self.assertIn("■移動平均・出来高", rendered)
         self.assertNotIn("■当日テクニカル", rendered)
-        self.assertNotIn("VWAP：", rendered)
-        self.assertNotIn("RSI：", rendered)
-        self.assertNotIn("距離 ", rendered)
+        self.assertIn("Vwap　：　+0円　(+0.00%)", rendered)
+        self.assertIn("RSI　：　N/A", rendered)
+        self.assertNotIn("VWAP", moving_average_section)
+        self.assertNotIn("RSI", moving_average_section)
+        self.assertNotIn("距離", moving_average_section)
+        self.assertIn("25日線：152.00（乖離 +7.89% / ATR比 3.00倍）", moving_average_section)
 
     def test_intraday_snapshot_marks_vwap_as_intraday_source(self):
         intraday = {
@@ -180,8 +194,21 @@ class DomainAndDataTests(unittest.TestCase):
         self.assertEqual(snapshot["latest_price_source"], "intraday_5m")
         self.assertEqual(snapshot["vwap_source"], "本日5分足")
         self.assertTrue(snapshot["vwap_timestamp"].endswith("10:05"))
-        self.assertIn("株価：150.0円（前日比-13円：-8.0%）", rendered)
-        self.assertIn("VWAP　　+1.35% (+2円)", rendered)
+        self.assertIn("2026-04-01　10：05", rendered)
+        self.assertIn("株価：150.0円　(前日比-13円：-8.0%)　(高値圏68.8%で終了)", rendered)
+        self.assertIn("Vwap　：　+2円　(+1.35%)", rendered)
+        self.assertIn("トレンド：　→　もみあい", rendered)
+
+    def test_summary_block_renders_expected_front_matter(self):
+        snapshot = get_stock_snapshot(StockInput("テスト", "0000"), FakeRepository())
+        summary = render_summary_block(snapshot)
+
+        self.assertTrue(summary.startswith("2026-04-01　終値"))
+        self.assertIn("株価：164.0円　(前日比+1円：+0.6%)　(中段50.0%で終了)", summary)
+        self.assertIn("トレンド：　↑　上昇", summary)
+        self.assertIn("Vwap　：　+0円　(+0.00%)", summary)
+        self.assertIn("位置　：　25日線　+7.89%　(ATR比：+3.0)　　60日線レンジ位置　98.4%(高値圏)", summary)
+        self.assertIn("RSI　：　N/A", summary)
 
     def test_flat_snapshot_can_be_converted_to_structured_snapshot(self):
         snapshot = get_stock_snapshot(StockInput("テスト", "0000"), FakeRepository())

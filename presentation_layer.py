@@ -82,6 +82,22 @@ def fmt_number_1(value):
     return f"{value:.1f}"
 
 
+def fmt_timestamp_for_summary(value):
+    if value is None:
+        return NA_TEXT
+    return str(value).replace(" ", "　", 1).replace(":", "：")
+
+
+def summary_close_zone(label):
+    if label == "高値圏で終了":
+        return "高値圏"
+    if label == "中段で終了":
+        return "中段"
+    if label == "安値圏で終了":
+        return "安値圏"
+    return label or NA_TEXT
+
+
 def fmt_ohlc(open_price, high_price, low_price, close_price):
     return f"{fmt_price(open_price)} / {fmt_price(high_price)} / {fmt_price(low_price)} / {fmt_price(close_price)}"
 
@@ -185,22 +201,22 @@ def render_summary_block(stock) -> str:
     vwap = stock.get("vwap")
     vwap_diff_price = None if latest is None or vwap is None else latest - vwap
     if stock.get("vwap_diff") is None or vwap_diff_price is None:
-        vwap_line = f"{DISPLAY_LABELS['vwap']}　　{NA_TEXT}"
+        vwap_line = f"Vwap　：　{NA_TEXT}"
     else:
-        vwap_line = f"{DISPLAY_LABELS['vwap']}　　{fmt_pct(stock.get('vwap_diff'))} ({fmt_price_diff_current(vwap_diff_price)}{UNIT_LABELS['yen']})"
+        vwap_line = f"Vwap　：　{fmt_price_diff_current(vwap_diff_price)}{UNIT_LABELS['yen']}　({fmt_pct(stock.get('vwap_diff'))})"
     range_position = stock.get("recent60_range_position")
     range_position_text = NA_TEXT if range_position is None else fmt_pct_plain(range_position * 100)
     close_position = stock.get("day_close_position")
     close_position_text = NA_TEXT if close_position is None else fmt_pct_plain(close_position * 100)
+    close_zone = summary_close_zone(stock.get("day_close_position_label"))
 
     return "\n".join([
-        f"株価：{fmt_price_current(latest)}{UNIT_LABELS['yen']}（{DISPLAY_LABELS['prev_day_change']}{fmt_price_diff_current(stock.get('day_change_price'))}{UNIT_LABELS['yen']}：{fmt_pct_1(stock.get('day_change_pct'))}） ({stock.get('latest_price_timestamp', NA_TEXT)} 時点)   {DISPLAY_LABELS['close_position']}({close_position_text}:{stock.get('day_close_position_label', NA_TEXT)})",
-        f"トレンド　{stock.get('summary_trend_symbol', NA_TEXT)} {stock.get('summary_trend_label', NA_TEXT)}",
+        fmt_timestamp_for_summary(stock.get("latest_price_timestamp")),
+        f"株価：{fmt_price_current(latest)}{UNIT_LABELS['yen']}　({DISPLAY_LABELS['prev_day_change']}{fmt_price_diff_current(stock.get('day_change_price'))}{UNIT_LABELS['yen']}：{fmt_pct_1(stock.get('day_change_pct'))})　({close_zone}{close_position_text}で終了)",
+        f"トレンド：　{stock.get('summary_trend_symbol', NA_TEXT)}　{stock.get('summary_trend_label', NA_TEXT)}",
         vwap_line,
-        f"位置　　　{DISPLAY_LABELS['ma25']} {fmt_pct(stock.get('dev25'))}（{DISPLAY_LABELS['atr_ratio']}：{fmt_signed_1(stock.get('ma25_distance_atr'))}）",
-        f"{DISPLAY_LABELS['rsi']}　　　{fmt_number_1(stock.get('rsi'))}",
-        "",
-        f"60日レンジ位置 {range_position_text}（{stock.get('recent60_range_zone', NA_TEXT)}）",
+        f"位置　：　{DISPLAY_LABELS['ma25']}　{fmt_pct(stock.get('dev25'))}　({DISPLAY_LABELS['atr_ratio']}：{fmt_signed_1(stock.get('ma25_distance_atr'))})　　60日線レンジ位置　{range_position_text}({stock.get('recent60_range_zone', NA_TEXT)})",
+        f"{DISPLAY_LABELS['rsi']}　：　{fmt_number_1(stock.get('rsi'))}",
     ])
 
 
@@ -217,8 +233,7 @@ def render_stock_block(stock, include_market: bool, market_block: str) -> str:
     actual_year = base_year - 1
 
     lines = [
-        f"【{DISPLAY_LABELS['stock']}】{stock['name']} ({stock['code']})",
-        "",
+        f"【{DISPLAY_LABELS['stock']}】　{stock['name']}",
         render_summary_block(stock),
         "",
         SECTION_TITLES["today_range"],
