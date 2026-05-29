@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from datetime import datetime
 
 from data_layer import fetch_market_snapshot
 from domain_layer import StockInput, get_stock_snapshot, grade_trend
@@ -26,7 +25,6 @@ class StockEntryPromptApp:
 
         self.watchlist_path: Path | None = None
         self.watchlist: list[tuple[str, str]] = []
-        self.market_cache: str = ""
 
         self.path_var = tk.StringVar(value="監視銘柄ファイル未選択")
         self.stock_var = tk.StringVar()

@@ -86,14 +86,6 @@ def fmt_multiple(value):
     return f"{value:.2f}{UNIT_LABELS['multiple']}"
 
 
-def fmt_price_plain(value):
-    if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
-        return NA_TEXT
-    return f"{value:.0f}"
-
-
-
-
 def fmt_price_current(value):
     if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
         return NA_TEXT
