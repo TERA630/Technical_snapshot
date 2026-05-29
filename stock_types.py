@@ -46,6 +46,11 @@ class TechnicalSnapshot(TypedDict, total=False):
     trend: str
 
 
+class SummarySnapshot(TypedDict, total=False):
+    trend_symbol: str
+    trend_label: str
+
+
 class RangeSnapshot(TypedDict, total=False):
     day_range: float | None
     day_range_atr: float | None
@@ -104,6 +109,7 @@ class ProfitabilitySnapshot(TypedDict, total=False):
 
 class StructuredStockSnapshot(TypedDict):
     identity: StockIdentity
+    summary: SummarySnapshot
     price: PriceSnapshot
     vwap: VwapSnapshot
     technical: TechnicalSnapshot
@@ -126,6 +132,10 @@ def to_structured_snapshot(stock: FlatStockSnapshot) -> StructuredStockSnapshot:
             "date": stock.get("date"),
             "acquired_at": stock.get("acquired_at"),
             "error": stock.get("error"),
+        },
+        "summary": {
+            "trend_symbol": stock.get("summary_trend_symbol"),
+            "trend_label": stock.get("summary_trend_label"),
         },
         "price": {
             "latest_bar_time": stock.get("latest_bar_time"),

@@ -308,6 +308,16 @@ def grade_trend(latest, ma5, ma25, ma25_prev5):
     return TREND_LABELS["mixed"]
 
 
+def summarize_trend(trend: str | None) -> tuple[str, str]:
+    if trend == TREND_LABELS["up"]:
+        return "↑", "上昇"
+    if trend == TREND_LABELS["down"]:
+        return "↓", "下落"
+    if trend == TREND_LABELS["mixed"]:
+        return "→", "もみ合い"
+    return "→", NA_TEXT
+
+
 
 
 def calc_per(price, eps):
@@ -459,6 +469,8 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
     recent60_high = safe_float(hist["High"].shift(1).rolling(60).max().iloc[-1]) if len(hist) >= 61 else None
     recent60_low = safe_float(hist["Low"].shift(1).rolling(60).min().iloc[-1]) if len(hist) >= 61 else None
     recent60_range_position = calc_close_position(recent60_high, recent60_low, latest)
+    trend = grade_trend(latest, ma5, ma25, ma25_prev5)
+    summary_trend_symbol, summary_trend_label = summarize_trend(trend)
 
     date_text = hist.index[-1].strftime("%Y-%m-%d")
     acquired_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -521,7 +533,9 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         "vol_ratio": vol_ratio,
         "prev_candle": prev_candle,
         "today_candle": grade_candle(open_price, latest),
-        "trend": grade_trend(latest, ma5, ma25, ma25_prev5),
+        "trend": trend,
+        "summary_trend_symbol": summary_trend_symbol,
+        "summary_trend_label": summary_trend_label,
         "per_actual": valuation.get("per_actual"),
         "per_fy0": calc_per(latest, valuation.get("eps_fy0")) if valuation.get("eps_fy0") is not None else valuation.get("per_forward"),
         "per_fy1": calc_per(latest, valuation.get("eps_fy1")),

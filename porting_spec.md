@@ -315,6 +315,7 @@ ATR14 = TrueRange.ewm(alpha=1/14, adjust=False, min_periods=14).mean()
 | 分類 | key例 |
 |---|---|
 | 銘柄 | `name`, `code`, `date`, `acquired_at`, `error`, `diagnostics` |
+| 先頭サマリ | `summary_trend_symbol`, `summary_trend_label` |
 | 当日価格 | `latest_bar_time`, `latest_price_source`, `latest_price_timestamp`, `open`, `high`, `low`, `latest`, `day_change_pct`, `volume` |
 | VWAP | `vwap`, `vwap_diff`, `vwap_source`, `vwap_timestamp` |
 | テクニカル | `ma5`, `dev5`, `ma25`, `dev25`, `rsi`, `atr14`, `trend` |
@@ -330,6 +331,7 @@ ATR14 = TrueRange.ewm(alpha=1/14, adjust=False, min_periods=14).mean()
 | key | 内容 |
 |---|---|
 | `identity` | 銘柄名、コード、取得日、エラー |
+| `summary` | 先頭サマリ用のトレンド記号、短縮ラベル |
 | `price` | 当日価格、現在値、出来高、価格時点、価格ソース |
 | `vwap` | VWAP、VWAP差分率、VWAP由来、VWAP時点 |
 | `technical` | MA、RSI、ATR、トレンド |
@@ -397,19 +399,116 @@ flatからstructuredへの変換は `stock_types.to_structured_snapshot()`。
 | `fmt_per` | 小数1桁 + `倍` |
 | `fmt_eps` | 小数なし + `円` |
 
-### 10.2 表示順
+### 10.2 先頭サマリ
+
+目的は、銘柄ごとの現在位置、短期方向、VWAP・25日線からの距離、RSI、60日レンジ位置を冒頭で一目確認できるようにすること。
+
+表示位置は銘柄見出しの直後、既存の `■当日位置・レンジ` より前とする。既存の詳細ブロックは削除せず、先頭サマリは詳細ブロックの要約として追加する。
+
+ドメイン層はトレンド短縮表示の意味変換のみ担当し、`summary_trend_symbol` と `summary_trend_label` をsnapshotに追加する。数値の小数桁、括弧、円・%などの表示整形はpresentation層で行う。
+
+表示テンプレート:
+
+```text
+【銘柄】{name} ({code})
+現在値　{latest}円 ({latest_price_timestamp} 時点)   前日比({day_change_pct})   終端位置({day_close_position}:{day_close_position_label})
+トレンド　{trend_symbol} {trend_short}
+VWAP　　{vwap_diff_pct} ({vwap_diff_price}円)
+位置　　　25日線 {dev25}（ATR比：{ma25_distance_atr}）
+RSI　　　{rsi}
+
+60日レンジ位置 {recent60_range_position}（{recent60_range_zone}）
+```
+
+項目仕様:
+
+| 表示項目 | snapshot key / 算出 | 表示仕様 |
+|---|---|---|
+| 銘柄 | `name`, `code` | 既存見出し `【銘柄】{name} ({code})` を使う |
+| 現在値 | `latest`, `latest_price_timestamp` | 価格は `fmt_price_current()` + `円`。時点は `latest_price_timestamp` をそのまま表示 |
+| 前日比 | `day_change_pct` | `fmt_pct_jp()`。例: `+1.23％` |
+| 終端位置 | `day_close_position`, `day_close_position_label` | 比率は `day_close_position * 100` を小数1桁の `%`。ラベルは既存ラベルをそのまま使う |
+| トレンド | `summary_trend_symbol`, `summary_trend_label` | 記号 + 短縮ラベルで表示 |
+| VWAP | `vwap_diff`, `latest - vwap` | 左にVWAP乖離率、括弧内に価格差。価格差は符号付き、`円`付き |
+| 位置 | `dev25`, `ma25_distance_atr` | `25日線 {dev25}（ATR比：{ma25_distance_atr}）`。ATR比は小数1桁を基本とする |
+| RSI | `rsi` | 小数1桁 |
+| 60日レンジ位置 | `recent60_range_position`, `recent60_range_zone` | `recent60_range_position * 100` を小数1桁の `%`。ゾーンラベルを括弧で併記 |
+
+トレンド短縮ラベル:
+
+| 元ラベル | 先頭サマリ表示 |
+|---|---|
+| 上昇トレンド | ↑ 上昇 |
+| 下落トレンド | ↓ 下落 |
+| もみ合い / 戻り局面 | → もみ合い |
+
+終端位置ラベルは既存ラベルを維持する。
+
+| 元ラベル | 先頭サマリ表示 |
+|---|---|
+| 高値圏で終了 | 高値圏で終了 |
+| 中段で終了 | 中段で終了 |
+| 安値圏で終了 | 安値圏で終了 |
+
+欠損時:
+
+- 数値が欠損、NaN、infの場合は該当箇所を `N/A` とする。
+- VWAPが欠損する場合は `VWAP　　N/A` とし、価格差も表示しない。
+- 25日線またはATRが欠損する場合は、取得できる値だけ表示し、不足部分を `N/A` とする。
+- 60日レンジの高値・安値が同値、または算出不能の場合は `60日レンジ位置 N/A` とする。
+
+例:
+
+```text
+【ダイセキ (9793)】
+現在値　xxxx円 (20xx/xx/xx xx:xx 時点)   前日比(+x.xx％)   終端位置(0.0%:安値圏で終了)
+トレンド　↓ 下落
+VWAP　　-1.13% (-xxx円)
+位置　　　25日線 -4.24%（ATR比：x.x）
+RSI　　　xx.x
+
+60日レンジ位置 xx.x%（安値圏）
+```
+
+VWAPの括弧内の価格差は、既存の `latest - vwap` と同じ符号にする。つまり現在値がVWAPより下ならマイナス。
+
+### 10.3 当日テクニカルブロック
+
+先頭サマリへの移動に伴い、既存の `■当日テクニカル` から `VWAP` と `RSI` の行は削除する。
+
+`■当日テクニカル` に残す項目:
+
+- 5日線
+- 25日線
+- 14日ATR
+- 出来高
+
+`VWAP`、`RSI` は先頭サマリのみで表示する。算出自体はsnapshotに残し、表示責務だけを先頭サマリへ移す。
+
+### 10.4 ファンダメンタルブロック
+
+`■ファンダメンタル` に表示する項目:
+
+- ROE
+- 営業利益率
+- 営業成長率
+
+配当利回りは表示しない。ドメイン・structured snapshotにも配当利回り項目は持たせない。
+
+### 10.5 表示順
 
 1. `【銘柄】{name} ({code})`
-2. `■当日位置・レンジ`
-3. PER/EPS
-4. `■当日テクニカル`
-5. `■前日評価`
-6. `■ファンダメンタル`
-7. `■節目・ブレイクライン`
-8. `■流れ`
-9. 任意で `■市況`
+2. 先頭サマリ
+3. `■当日位置・レンジ`
+4. PER/EPS
+5. `■当日テクニカル`
+6. `■前日評価`
+7. `■ファンダメンタル`
+8. `■節目・ブレイクライン`
+9. `■流れ`
+10. 任意で `■市況`
 
-### 10.3 市況ブロック
+### 10.6 市況ブロック
 
 市況ブロックはチェック有効時のみ末尾に追加する。表示順は WTI、銅、NASDAQ。
 
@@ -441,6 +540,9 @@ python -m unittest discover -s tests -v
 - 任意データ取得失敗時のdiagnostics
 - flatからstructuredへの変換
 - `get_structured_stock_snapshot()`
+- 先頭サマリの表示順、トレンド短縮ラベル、終端位置の既存ラベル維持、欠損時の `N/A`
+- `■当日テクニカル` から `VWAP`、`RSI` が削除されていること
+- `■ファンダメンタル` に配当利回りが表示されず、structured snapshotにも配当項目がないこと
 
 ## 12. Samples仕様
 

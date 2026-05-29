@@ -23,6 +23,7 @@ from domain_layer import (
     grade_prev_session,
     grade_range_by_atr,
     grade_trend,
+    summarize_trend,
 )
 from presentation_layer import render_stock_block
 from stock_logging import setup_stock_logging
@@ -122,6 +123,9 @@ class DomainAndDataTests(unittest.TestCase):
         self.assertEqual(grade_range_by_atr(1.2), "大きめ")
         self.assertEqual(grade_prev_session(1.0, 0.5, 0), "押し")
         self.assertEqual(grade_trend(120, 110, 100, 95), "上昇トレンド")
+        self.assertEqual(summarize_trend("上昇トレンド"), ("↑", "上昇"))
+        self.assertEqual(summarize_trend("下落トレンド"), ("↓", "下落"))
+        self.assertEqual(summarize_trend("もみ合い / 戻り局面"), ("→", "もみ合い"))
 
     def test_stock_snapshot_uses_fallbacks_and_records_missing_intraday(self):
         snapshot = get_stock_snapshot(StockInput("テスト", "0000"), FakeRepository())
@@ -133,6 +137,8 @@ class DomainAndDataTests(unittest.TestCase):
         self.assertEqual(snapshot["vwap_source"], "日足参考値")
         self.assertTrue(snapshot["vwap_timestamp"].endswith("終値"))
         self.assertEqual(snapshot["per_fy0"], 14)
+        self.assertEqual(snapshot["summary_trend_symbol"], "↑")
+        self.assertEqual(snapshot["summary_trend_label"], "上昇")
         self.assertEqual(snapshot["diagnostics"][0]["field"], "intraday")
         self.assertIn("データ欠損", snapshot["diagnostics"][0]["category"])
 
@@ -178,6 +184,8 @@ class DomainAndDataTests(unittest.TestCase):
         self.assertEqual(structured["identity"]["code"], "0000")
         self.assertIn("latest", structured["price"])
         self.assertIn("latest_price_timestamp", structured["price"])
+        self.assertEqual(structured["summary"]["trend_symbol"], "↑")
+        self.assertEqual(structured["summary"]["trend_label"], "上昇")
         self.assertEqual(structured["vwap"]["source"], "日足参考値")
         self.assertIn("per_fy0", structured["valuation"])
         self.assertNotIn("dividend", structured)
