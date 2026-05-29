@@ -3,7 +3,7 @@
     "name": "オムロン",
     "code": "6645",
     "date": "2026-05-29",
-    "acquired_at": "2026-05-29 18:19:42",
+    "acquired_at": "2026-05-29 18:30:49",
     "error": null
   },
   "price": {
@@ -82,12 +82,6 @@
     "roe_actual": 3.8219999999999996,
     "op_margin_actual": 7.082231061187174,
     "op_growth_actual": 62.45243612851543
-  },
-  "dividend": {
-    "annual_dividend": 104.0,
-    "latest_dividend": 52.0,
-    "latest_dividend_date": "2026-03-30",
-    "dividend_yield": 1.8046156515703626
   },
   "diagnostics": []
 }

@@ -45,7 +45,7 @@ def build_history(rows: int = 65) -> pd.DataFrame:
 
 
 class FakeRepository:
-    def __init__(self, history=None, intraday=None, valuation=None, profitability=None, dividend=None):
+    def __init__(self, history=None, intraday=None, valuation=None, profitability=None):
         self.history = build_history() if history is None else history
         self.intraday = intraday
         self.valuation = valuation or {
@@ -68,12 +68,6 @@ class FakeRepository:
             "revenue_fy0": 1000,
             "revenue_fy1": 1100,
         }
-        self.dividend = {
-            "annual_dividend": 4,
-            "latest_dividend": 1,
-            "latest_dividend_date": "2026-01-01",
-        } if dividend is None else dividend
-
     def fetch_daily_history(self, code: str, period: str = "4mo") -> pd.DataFrame:
         return self.history
 
@@ -85,9 +79,6 @@ class FakeRepository:
 
     def fetch_profitability_snapshot(self, code: str) -> dict:
         return self.profitability
-
-    def fetch_dividend_snapshot(self, code: str) -> dict:
-        return self.dividend
 
 
 class FailingValuationRepository(FakeRepository):
@@ -142,7 +133,6 @@ class DomainAndDataTests(unittest.TestCase):
         self.assertEqual(snapshot["vwap_source"], "日足参考値")
         self.assertTrue(snapshot["vwap_timestamp"].endswith("終値"))
         self.assertEqual(snapshot["per_fy0"], 14)
-        self.assertGreater(snapshot["dividend_yield"], 0)
         self.assertEqual(snapshot["diagnostics"][0]["field"], "intraday")
         self.assertIn("データ欠損", snapshot["diagnostics"][0]["category"])
 
@@ -190,7 +180,7 @@ class DomainAndDataTests(unittest.TestCase):
         self.assertIn("latest_price_timestamp", structured["price"])
         self.assertEqual(structured["vwap"]["source"], "日足参考値")
         self.assertIn("per_fy0", structured["valuation"])
-        self.assertIn("dividend_yield", structured["dividend"])
+        self.assertNotIn("dividend", structured)
 
     def test_structured_snapshot_api_returns_grouped_snapshot(self):
         structured = get_structured_stock_snapshot(StockInput("テスト", "0000"), FakeRepository())

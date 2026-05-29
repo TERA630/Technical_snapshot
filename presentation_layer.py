@@ -198,8 +198,6 @@ def render_stock_block(stock, include_market: bool, market_block: str) -> str:
         f"{DISPLAY_LABELS['overall_evaluation']}：{stock['prev_evaluation']}",
         "",
         SECTION_TITLES["fundamentals"],
-        f"{DISPLAY_LABELS['dividend_yield']} {fmt_pct_no_sign_jp(stock.get('dividend_yield'))}",
-        "",
         f"{actual_year}{DISPLAY_LABELS['actual_roe']} {fmt_pct_no_sign_jp(stock.get('roe_actual'))}",
         f"{actual_year}{DISPLAY_LABELS['actual_op_margin']} {fmt_pct_no_sign_jp(stock.get('op_margin_actual'))}",
         f"{actual_year}{DISPLAY_LABELS['actual_op_growth']} {fmt_pct_no_sign_jp(stock.get('op_growth_actual'))}",

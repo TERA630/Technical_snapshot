@@ -8,7 +8,7 @@ from typing import Protocol
 
 import pandas as pd
 
-from data_layer import fetch_dividend_snapshot, fetch_history, fetch_intraday_vwap, fetch_profitability_snapshot, fetch_valuation_snapshot, safe_float
+from data_layer import fetch_history, fetch_intraday_vwap, fetch_profitability_snapshot, fetch_valuation_snapshot, safe_float
 from stock_constants import (
     ATR_PERIOD,
     CANDLE_LABELS,
@@ -47,7 +47,6 @@ class StockDataRepository(Protocol):
     def fetch_intraday_snapshot(self, code: str, interval: str = "5m") -> dict | None: ...
     def fetch_valuation_snapshot(self, code: str) -> dict: ...
     def fetch_profitability_snapshot(self, code: str) -> dict: ...
-    def fetch_dividend_snapshot(self, code: str) -> dict: ...
 
 
 class YFinanceStockDataRepository:
@@ -63,9 +62,6 @@ class YFinanceStockDataRepository:
 
     def fetch_profitability_snapshot(self, code: str) -> dict:
         return fetch_profitability_snapshot(code)
-
-    def fetch_dividend_snapshot(self, code: str) -> dict:
-        return fetch_dividend_snapshot(code)
 
 
 def add_diagnostic(diagnostics: list[dict], category_key: str, field: str, message: str):
@@ -321,11 +317,6 @@ def calc_per(price, eps):
 
 
 
-def calc_dividend_yield(latest_price, annual_dividend):
-    if latest_price in (None, 0) or annual_dividend is None:
-        return None
-    return (annual_dividend / latest_price) * 100
-
 def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository | None = None):
     repo = repository or YFinanceStockDataRepository()
     diagnostics: list[dict] = []
@@ -412,12 +403,6 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         diagnostics,
         "profitability",
         lambda: repo.fetch_profitability_snapshot(stock_input.code),
-        {},
-    )
-    dividend = fetch_optional_snapshot(
-        diagnostics,
-        "dividend",
-        lambda: repo.fetch_dividend_snapshot(stock_input.code),
         {},
     )
     latest_bar_time = UNIT_LABELS["closing_price"]
@@ -554,10 +539,6 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         "op_growth_actual": profitability.get("op_growth_actual"),
         "op_income_actual": profitability.get("op_income_actual"),
         "op_income_prev": profitability.get("op_income_prev"),
-        "annual_dividend": dividend.get("annual_dividend"),
-        "latest_dividend": dividend.get("latest_dividend"),
-        "latest_dividend_date": dividend.get("latest_dividend_date"),
-        "dividend_yield": calc_dividend_yield(latest, dividend.get("annual_dividend")),
         "error": None,
         "diagnostics": diagnostics,
     }

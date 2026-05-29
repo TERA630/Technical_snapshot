@@ -3,7 +3,7 @@
     "name": "東京エレクトロン",
     "code": "8035",
     "date": "2026-05-29",
-    "acquired_at": "2026-05-29 18:19:39",
+    "acquired_at": "2026-05-29 18:30:47",
     "error": null
   },
   "price": {
@@ -82,12 +82,6 @@
     "roe_actual": 29.270000000000003,
     "op_margin_actual": null,
     "op_growth_actual": null
-  },
-  "dividend": {
-    "annual_dividend": 628.0,
-    "latest_dividend": 364.0,
-    "latest_dividend_date": "2026-03-30",
-    "dividend_yield": 1.190295678544352
   },
   "diagnostics": []
 }

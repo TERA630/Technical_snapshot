@@ -102,13 +102,6 @@ class ProfitabilitySnapshot(TypedDict, total=False):
     op_growth_actual: float | None
 
 
-class DividendSnapshot(TypedDict, total=False):
-    annual_dividend: float | None
-    latest_dividend: float | None
-    latest_dividend_date: str | None
-    dividend_yield: float | None
-
-
 class StructuredStockSnapshot(TypedDict):
     identity: StockIdentity
     price: PriceSnapshot
@@ -119,7 +112,6 @@ class StructuredStockSnapshot(TypedDict):
     breakline: BreaklineSnapshot
     valuation: ValuationSnapshot
     profitability: ProfitabilitySnapshot
-    dividend: DividendSnapshot
     diagnostics: list[Diagnostic]
 
 
@@ -211,12 +203,6 @@ def to_structured_snapshot(stock: FlatStockSnapshot) -> StructuredStockSnapshot:
             "roe_actual": stock.get("roe_actual"),
             "op_margin_actual": stock.get("op_margin_actual"),
             "op_growth_actual": stock.get("op_growth_actual"),
-        },
-        "dividend": {
-            "annual_dividend": stock.get("annual_dividend"),
-            "latest_dividend": stock.get("latest_dividend"),
-            "latest_dividend_date": stock.get("latest_dividend_date"),
-            "dividend_yield": stock.get("dividend_yield"),
         },
         "diagnostics": stock.get("diagnostics") or [],
     }

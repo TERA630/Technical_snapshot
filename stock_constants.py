@@ -52,7 +52,6 @@ DISPLAY_LABELS = {
     "candle": "ローソク",
     "prev_session_judgement": "押し判定",
     "overall_evaluation": "総合評価",
-    "dividend_yield": "配当利回り",
     "actual_roe": "年実績ROE",
     "actual_op_margin": "年実績営業利益率",
     "actual_op_growth": "年実績営業成長率",

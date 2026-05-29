@@ -183,17 +183,6 @@ VWAP = cumsum(TypicalPrice * Volume) / cumsum(Volume)
 - 営業利益: `Operating Income`, `OperatingIncome`
 - 売上高: `Total Revenue`, `TotalRevenue`, `Revenue`
 
-### 5.7 配当
-
-関数: `fetch_dividend_snapshot(code)`
-
-| key | 取得元/算出 |
-|---|---|
-| `annual_dividend` | `trailingAnnualDividendRate`。なければ `dividendRate` |
-| `latest_dividend` | `ticker.dividends` の末尾 |
-| `latest_dividend_date` | 最新配当日の `YYYY-MM-DD` |
-| `dividend_yield` | `annual_dividend / latest_price * 100` |
-
 ## 6. 指標作成仕様
 
 ### 6.1 移動平均
@@ -333,7 +322,6 @@ ATR14 = TrueRange.ewm(alpha=1/14, adjust=False, min_periods=14).mean()
 | 節目 | `recent5_high`, `recent20_high`, `recent60_high`, `recent60_low` |
 | PER/EPS | `per_actual`, `per_fy0`, `per_fy1`, `eps_actual`, `eps_fy0`, `eps_fy1` |
 | 収益性 | `roe_actual`, `op_margin_actual`, `op_growth_actual` |
-| 配当 | `annual_dividend`, `latest_dividend`, `latest_dividend_date`, `dividend_yield` |
 
 ### 8.2 structured snapshot
 
@@ -350,7 +338,6 @@ ATR14 = TrueRange.ewm(alpha=1/14, adjust=False, min_periods=14).mean()
 | `breakline` | 直近高値、60日レンジ |
 | `valuation` | PER/EPS |
 | `profitability` | ROE、営業利益率、営業成長率 |
-| `dividend` | 配当、配当利回り |
 | `diagnostics` | 内部診断情報 |
 
 flatからstructuredへの変換は `stock_types.to_structured_snapshot()`。

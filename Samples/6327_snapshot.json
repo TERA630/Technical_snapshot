@@ -2,7 +2,7 @@
   "name": "北川電機",
   "code": "6327",
   "date": "2026-05-29",
-  "acquired_at": "2026-05-29 18:19:37",
+  "acquired_at": "2026-05-29 18:30:45",
   "latest_bar_time": "15:20",
   "latest_price_source": "intraday_5m",
   "latest_price_timestamp": "2026-05-29 15:20",
@@ -75,10 +75,6 @@
   "op_growth_actual": null,
   "op_income_actual": null,
   "op_income_prev": 815944000.0,
-  "annual_dividend": 12.0,
-  "latest_dividend": 12.0,
-  "latest_dividend_date": "2025-06-27",
-  "dividend_yield": 0.20304568527918782,
   "error": null,
   "diagnostics": []
 }

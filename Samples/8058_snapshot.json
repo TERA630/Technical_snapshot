@@ -2,7 +2,7 @@
   "name": "三菱商事",
   "code": "8058",
   "date": "2026-05-29",
-  "acquired_at": "2026-05-29 18:19:45",
+  "acquired_at": "2026-05-29 18:30:51",
   "latest_bar_time": "15:20",
   "latest_price_source": "intraday_5m",
   "latest_price_timestamp": "2026-05-29 15:20",
@@ -75,10 +75,6 @@
   "op_growth_actual": null,
   "op_income_actual": null,
   "op_income_prev": 371097000000.0,
-  "annual_dividend": 110.0,
-  "latest_dividend": 55.0,
-  "latest_dividend_date": "2026-03-30",
-  "dividend_yield": 2.162799842705466,
   "error": null,
   "diagnostics": []
 }
