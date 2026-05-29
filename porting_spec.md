@@ -4,7 +4,6 @@
 
 本書を、現行プログラムの株価取得・指標作成・表示エンジンに関する正本仕様とする。
 
-旧来の `display_spec.md` は削除済み。`fundamentals_data_spec.md` は詳細仕様を保持せず、本書への参照ファイルとする。四半期ファンダメンタルは現行実装・移植仕様の対象外。
 
 ## 2. 対象ファイル
 
@@ -121,7 +120,15 @@ VWAP = cumsum(TypicalPrice * Volume) / cumsum(Volume)
 - `latest_price_source` は `daily_close`
 - `latest_price_timestamp` は `{日足日付} 終値`
 - VWAPは日足の `(High + Low + Close) / 3`
+- `vwap_source` は `日足参考値`
+- `vwap_timestamp` は `{日足日付} 終値`
 - `diagnostics` に `field="intraday"` を記録
+
+日中足が取れた場合:
+
+- VWAPは本日5分足の価格と出来高から計算
+- `vwap_source` は `本日5分足`
+- `vwap_timestamp` は `{日足日付} {latest_bar_time}`
 
 ### 5.4 市況
 
@@ -320,7 +327,7 @@ ATR14 = TrueRange.ewm(alpha=1/14, adjust=False, min_periods=14).mean()
 |---|---|
 | 銘柄 | `name`, `code`, `date`, `acquired_at`, `error`, `diagnostics` |
 | 当日価格 | `latest_bar_time`, `latest_price_source`, `latest_price_timestamp`, `open`, `high`, `low`, `latest`, `day_change_pct`, `volume` |
-| VWAP | `vwap`, `vwap_diff` |
+| VWAP | `vwap`, `vwap_diff`, `vwap_source`, `vwap_timestamp` |
 | テクニカル | `ma5`, `dev5`, `ma25`, `dev25`, `rsi`, `atr14`, `trend` |
 | 前日 | `prev_close`, `prev_candle`, `prev_wick_shape`, `prev_evaluation` |
 | 節目 | `recent5_high`, `recent20_high`, `recent60_high`, `recent60_low` |
@@ -336,7 +343,7 @@ ATR14 = TrueRange.ewm(alpha=1/14, adjust=False, min_periods=14).mean()
 |---|---|
 | `identity` | 銘柄名、コード、取得日、エラー |
 | `price` | 当日価格、現在値、出来高、価格時点、価格ソース |
-| `vwap` | VWAP、VWAP差分率 |
+| `vwap` | VWAP、VWAP差分率、VWAP由来、VWAP時点 |
 | `technical` | MA、RSI、ATR、トレンド |
 | `range` | 当日レンジ、終端位置、25日線距離 |
 | `previous_session` | 前日価格、ローソク、押し判定、総合評価 |
@@ -380,6 +387,8 @@ flatからstructuredへの変換は `stock_types.to_structured_snapshot()`。
 - 現在値 `latest`
 - 価格ソース `latest_price_source`
 - 価格時点 `latest_price_timestamp`
+- VWAP由来 `vwap_source`
+- VWAP時点 `vwap_timestamp`
 - エラー有無
 - diagnostics件数
 
@@ -474,5 +483,7 @@ python -m unittest discover -s tests -v
 - `latest_price_source` は日中足なら `intraday_5m`、日足終値代替なら `daily_close`。
 - 直近高値は当日を除外している。
 - 今期末予想営業利益率は現行仕様の対象外。取得できない値を `N/A` として表示し続けるより、表示・ドメインから削除する。
-- `vwap_diff` はflat snapshotにあるが、表示では `fmt_vwap_position(latest, vwap)` が再計算している。
+- `vwap_source` は日中足由来なら `本日5分足`、日足代替なら `日足参考値`。
+- `vwap_timestamp` は日中足由来なら `{日足日付} {HH:MM}`、日足代替なら `{日足日付} 終値`。
+- `vwap_diff` はflat snapshotにあるが、表示では `fmt_vwap_position(latest, vwap, vwap_source)` が再計算している。
 - structured snapshotは移植用の推奨形式。現行表示層はflat snapshotを使う。

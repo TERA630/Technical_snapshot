@@ -32,6 +32,8 @@ class PriceSnapshot(TypedDict, total=False):
 class VwapSnapshot(TypedDict, total=False):
     value: float | None
     diff_pct: float | None
+    source: str
+    timestamp: str
 
 
 class TechnicalSnapshot(TypedDict, total=False):
@@ -147,6 +149,8 @@ def to_structured_snapshot(stock: FlatStockSnapshot) -> StructuredStockSnapshot:
         "vwap": {
             "value": stock.get("vwap"),
             "diff_pct": stock.get("vwap_diff"),
+            "source": stock.get("vwap_source"),
+            "timestamp": stock.get("vwap_timestamp"),
         },
         "technical": {
             "ma5": stock.get("ma5"),

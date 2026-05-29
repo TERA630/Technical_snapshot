@@ -27,6 +27,7 @@ from stock_constants import (
     SESSION_LABELS,
     TREND_LABELS,
     UNIT_LABELS,
+    VWAP_SOURCE_LABELS,
     WICK_SHAPE_LABELS,
     WICK_SHAPE_THRESHOLDS,
 )
@@ -100,13 +101,15 @@ def build_latest_price_timestamp(date_text: str, latest_bar_time: str) -> str:
 
 def log_snapshot_result(snapshot: dict):
     logger.info(
-        "stock snapshot acquired: name=%s code=%s acquired_at=%s latest=%s latest_price_source=%s latest_price_timestamp=%s error=%s diagnostics_count=%s",
+        "stock snapshot acquired: name=%s code=%s acquired_at=%s latest=%s latest_price_source=%s latest_price_timestamp=%s vwap_source=%s vwap_timestamp=%s error=%s diagnostics_count=%s",
         snapshot.get("name"),
         snapshot.get("code"),
         snapshot.get("acquired_at"),
         snapshot.get("latest"),
         snapshot.get("latest_price_source"),
         snapshot.get("latest_price_timestamp"),
+        snapshot.get("vwap_source"),
+        snapshot.get("vwap_timestamp"),
         snapshot.get("error"),
         len(snapshot.get("diagnostics") or []),
     )
@@ -419,6 +422,7 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
     )
     latest_bar_time = UNIT_LABELS["closing_price"]
     latest_price_source = PRICE_SOURCE_LABELS["daily_close"]
+    vwap_source = VWAP_SOURCE_LABELS["daily_typical"]
     open_price = safe_float(last["Open"])
     high_price = safe_float(last["High"])
     low_price = safe_float(last["Low"])
@@ -433,6 +437,7 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         low_price = intraday.get("low") if intraday.get("low") is not None else low_price
         volume_now = intraday.get("volume") if intraday.get("volume") is not None else volume_now
         vwap = intraday.get("vwap")
+        vwap_source = VWAP_SOURCE_LABELS["intraday"]
     else:
         typical = (last["High"] + last["Low"] + last["Close"]) / 3.0
         vwap = safe_float(typical)
@@ -493,6 +498,8 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         "day_change_pct": day_change_pct,
         "vwap": vwap,
         "vwap_diff": None if latest in (None, 0) or vwap in (None, 0) else (latest / vwap - 1.0) * 100,
+        "vwap_source": vwap_source,
+        "vwap_timestamp": build_latest_price_timestamp(date_text, latest_bar_time),
         "ma5": ma5,
         "dev5": dev5,
         "ma25": ma25,

@@ -60,12 +60,13 @@ def fmt_ohlc(open_price, high_price, low_price, close_price):
     return f"{fmt_price(open_price)} / {fmt_price(high_price)} / {fmt_price(low_price)} / {fmt_price(close_price)}"
 
 
-def fmt_vwap_position(latest, vwap):
+def fmt_vwap_position(latest, vwap, source_label=None):
     if latest is None or vwap in (None, 0):
         return NA_TEXT
     diff = latest - vwap
     diff_pct = (latest / vwap - 1.0) * 100
-    return f"{fmt_price(vwap)}（{fmt_price_diff(diff)} / {fmt_pct(diff_pct)}）"
+    source_part = f" / {source_label}" if source_label else ""
+    return f"{fmt_price(vwap)}（{fmt_price_diff(diff)} / {fmt_pct(diff_pct)}{source_part}）"
 
 
 def fmt_close_position(position, label):
@@ -179,7 +180,7 @@ def render_stock_block(stock, include_market: bool, market_block: str) -> str:
         f"EPS  {fmt_eps(stock.get('eps_actual'))}({DISPLAY_LABELS['actual']}) {fmt_eps(stock.get('eps_fy0'))}({DISPLAY_LABELS['fy0_forecast']}) {fmt_eps(stock.get('eps_fy1'))}({DISPLAY_LABELS['fy1_forecast']})",
         "",
         SECTION_TITLES["technical"],
-        f"{DISPLAY_LABELS['vwap']}：{fmt_vwap_position(stock['latest'], stock['vwap'])}",
+        f"{DISPLAY_LABELS['vwap']}：{fmt_vwap_position(stock['latest'], stock['vwap'], stock.get('vwap_source'))}",
         f"{DISPLAY_LABELS['ma5']}：{fmt_price(stock['ma5'])}（{DISPLAY_LABELS['deviation']} {fmt_pct(stock['dev5'])}）",
         f"{DISPLAY_LABELS['ma25']}：{fmt_price(stock['ma25'])}（{DISPLAY_LABELS['deviation']} {fmt_pct(stock['dev25'])} / {DISPLAY_LABELS['distance']} {fmt_price_diff(stock['ma25_distance'])} / {DISPLAY_LABELS['atr_ratio']} {fmt_multiple(stock['ma25_distance_atr'])}）",
         f"{DISPLAY_LABELS['atr14']}：{fmt_price(stock['atr14'])}",

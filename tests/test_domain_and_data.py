@@ -139,6 +139,8 @@ class DomainAndDataTests(unittest.TestCase):
         self.assertEqual(snapshot["latest_bar_time"], "終値")
         self.assertEqual(snapshot["latest_price_source"], "daily_close")
         self.assertTrue(snapshot["latest_price_timestamp"].endswith("終値"))
+        self.assertEqual(snapshot["vwap_source"], "日足参考値")
+        self.assertTrue(snapshot["vwap_timestamp"].endswith("終値"))
         self.assertEqual(snapshot["per_fy0"], 14)
         self.assertGreater(snapshot["dividend_yield"], 0)
         self.assertEqual(snapshot["diagnostics"][0]["field"], "intraday")
@@ -159,6 +161,25 @@ class DomainAndDataTests(unittest.TestCase):
 
         self.assertIn("PER  N/A(実績)", rendered)
         self.assertIn("■当日テクニカル", rendered)
+        self.assertIn("日足参考値", rendered)
+
+    def test_intraday_snapshot_marks_vwap_as_intraday_source(self):
+        intraday = {
+            "latest_price": 150,
+            "latest_bar_time": "10:05",
+            "open": 140,
+            "high": 155,
+            "low": 139,
+            "vwap": 148,
+            "volume": 12345,
+        }
+        snapshot = get_stock_snapshot(StockInput("テスト", "0000"), FakeRepository(intraday=intraday))
+        rendered = render_stock_block(snapshot, include_market=False, market_block="")
+
+        self.assertEqual(snapshot["latest_price_source"], "intraday_5m")
+        self.assertEqual(snapshot["vwap_source"], "本日5分足")
+        self.assertTrue(snapshot["vwap_timestamp"].endswith("10:05"))
+        self.assertIn("本日5分足", rendered)
 
     def test_flat_snapshot_can_be_converted_to_structured_snapshot(self):
         snapshot = get_stock_snapshot(StockInput("テスト", "0000"), FakeRepository())
@@ -167,6 +188,7 @@ class DomainAndDataTests(unittest.TestCase):
         self.assertEqual(structured["identity"]["code"], "0000")
         self.assertIn("latest", structured["price"])
         self.assertIn("latest_price_timestamp", structured["price"])
+        self.assertEqual(structured["vwap"]["source"], "日足参考値")
         self.assertIn("per_fy0", structured["valuation"])
         self.assertIn("dividend_yield", structured["dividend"])
 

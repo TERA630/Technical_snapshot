@@ -92,6 +92,11 @@ PRICE_SOURCE_LABELS = {
     "daily_close": "daily_close",
 }
 
+VWAP_SOURCE_LABELS = {
+    "intraday": "本日5分足",
+    "daily_typical": "日足参考値",
+}
+
 RANGE_ATR_LABELS = {
     "narrow": "浅い値幅",
     "normal": "通常値幅",
