@@ -446,6 +446,7 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
 
     dev5 = None if latest in (None, 0) or ma5 in (None, 0) else (latest / ma5 - 1.0) * 100
     dev25 = None if latest in (None, 0) or ma25 in (None, 0) else (latest / ma25 - 1.0) * 100
+    day_change_price = None if latest is None or prev_close is None else latest - prev_close
     day_change_pct = None if latest in (None, 0) or prev_close in (None, 0) else (latest / prev_close - 1.0) * 100
     vol_avg20 = safe_float(last["VolAvg20"])
     vol_ratio = None if volume_now in (None, 0) or vol_avg20 in (None, 0) else (volume_now / vol_avg20 - 1.0) * 100
@@ -492,6 +493,7 @@ def get_stock_snapshot(stock_input: StockInput, repository: StockDataRepository 
         "high": high_price,
         "low": low_price,
         "latest": latest,
+        "day_change_price": day_change_price,
         "day_change_pct": day_change_pct,
         "vwap": vwap,
         "vwap_diff": None if latest in (None, 0) or vwap in (None, 0) else (latest / vwap - 1.0) * 100,

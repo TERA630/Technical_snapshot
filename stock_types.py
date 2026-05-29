@@ -25,6 +25,7 @@ class PriceSnapshot(TypedDict, total=False):
     high: float | None
     low: float | None
     latest: float | None
+    day_change_price: float | None
     day_change_pct: float | None
     volume: float | None
 
@@ -145,6 +146,7 @@ def to_structured_snapshot(stock: FlatStockSnapshot) -> StructuredStockSnapshot:
             "high": stock.get("high"),
             "low": stock.get("low"),
             "latest": stock.get("latest"),
+            "day_change_price": stock.get("day_change_price"),
             "day_change_pct": stock.get("day_change_pct"),
             "volume": stock.get("volume"),
         },

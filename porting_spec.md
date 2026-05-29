@@ -224,6 +224,7 @@ ATR14 = TrueRange.ewm(alpha=1/14, adjust=False, min_periods=14).mean()
 
 | key | 式 |
 |---|---|
+| `day_change_price` | `latest - prev_close` |
 | `day_change_pct` | `latest / prev_close - 1` の百分率 |
 | `day_range` | `high - low` |
 | `day_range_atr` | `day_range / atr14` |
@@ -316,7 +317,7 @@ ATR14 = TrueRange.ewm(alpha=1/14, adjust=False, min_periods=14).mean()
 |---|---|
 | 銘柄 | `name`, `code`, `date`, `acquired_at`, `error`, `diagnostics` |
 | 先頭サマリ | `summary_trend_symbol`, `summary_trend_label` |
-| 当日価格 | `latest_bar_time`, `latest_price_source`, `latest_price_timestamp`, `open`, `high`, `low`, `latest`, `day_change_pct`, `volume` |
+| 当日価格 | `latest_bar_time`, `latest_price_source`, `latest_price_timestamp`, `open`, `high`, `low`, `latest`, `day_change_price`, `day_change_pct`, `volume` |
 | VWAP | `vwap`, `vwap_diff`, `vwap_source`, `vwap_timestamp` |
 | テクニカル | `ma5`, `dev5`, `ma25`, `dev25`, `rsi`, `atr14`, `trend` |
 | 前日 | `prev_close`, `prev_candle`, `prev_wick_shape`, `prev_evaluation` |
@@ -405,13 +406,13 @@ flatからstructuredへの変換は `stock_types.to_structured_snapshot()`。
 
 表示位置は銘柄見出しの直後、既存の `■当日位置・レンジ` より前とする。既存の詳細ブロックは削除せず、先頭サマリは詳細ブロックの要約として追加する。
 
-ドメイン層はトレンド短縮表示の意味変換のみ担当し、`summary_trend_symbol` と `summary_trend_label` をsnapshotに追加する。数値の小数桁、括弧、円・%などの表示整形はpresentation層で行う。
+ドメイン層は先頭サマリ用に、前日比の円差 `day_change_price` とトレンド短縮表示 `summary_trend_symbol` / `summary_trend_label` をsnapshotに追加する。数値の小数桁、括弧、円・%などの表示整形はpresentation層で行う。
 
 表示テンプレート:
 
 ```text
 【銘柄】{name} ({code})
-現在値　{latest}円 ({latest_price_timestamp} 時点)   前日比({day_change_pct})   終端位置({day_close_position}:{day_close_position_label})
+株価：{latest}円（前日比{day_change_price}円：{day_change_pct}） ({latest_price_timestamp} 時点)   終端位置({day_close_position}:{day_close_position_label})
 トレンド　{trend_symbol} {trend_short}
 VWAP　　{vwap_diff_pct} ({vwap_diff_price}円)
 位置　　　25日線 {dev25}（ATR比：{ma25_distance_atr}）
@@ -425,8 +426,8 @@ RSI　　　{rsi}
 | 表示項目 | snapshot key / 算出 | 表示仕様 |
 |---|---|---|
 | 銘柄 | `name`, `code` | 既存見出し `【銘柄】{name} ({code})` を使う |
-| 現在値 | `latest`, `latest_price_timestamp` | 価格は `fmt_price_current()` + `円`。時点は `latest_price_timestamp` をそのまま表示 |
-| 前日比 | `day_change_pct` | `fmt_pct_jp()`。例: `+1.23％` |
+| 株価 | `latest`, `latest_price_timestamp` | `株価：{latest}円`。価格は `fmt_price_current()` + `円`。時点は `latest_price_timestamp` をそのまま表示 |
+| 前日比 | `day_change_price`, `day_change_pct` | `（前日比{day_change_price}円：{day_change_pct}）`。価格差は符号付き円、率は符号付き・小数1桁の `%` |
 | 終端位置 | `day_close_position`, `day_close_position_label` | 比率は `day_close_position * 100` を小数1桁の `%`。ラベルは既存ラベルをそのまま使う |
 | トレンド | `summary_trend_symbol`, `summary_trend_label` | 記号 + 短縮ラベルで表示 |
 | VWAP | `vwap_diff`, `latest - vwap` | 左にVWAP乖離率、括弧内に価格差。価格差は符号付き、`円`付き |
@@ -461,7 +462,7 @@ RSI　　　{rsi}
 
 ```text
 【ダイセキ (9793)】
-現在値　xxxx円 (20xx/xx/xx xx:xx 時点)   前日比(+x.xx％)   終端位置(0.0%:安値圏で終了)
+株価：3904円（前日比+120円：+x.x%） (20xx/xx/xx xx:xx 時点)   終端位置(0.0%:安値圏で終了)
 トレンド　↓ 下落
 VWAP　　-1.13% (-xxx円)
 位置　　　25日線 -4.24%（ATR比：x.x）
